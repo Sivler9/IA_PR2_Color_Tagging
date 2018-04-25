@@ -156,7 +156,7 @@ class KMeans:
     def _cluster_points(self):
         """Calculates the closest centroid of all points in X"""
         PK = distance(self.X, self.centroids)
-        self.clusters = np.array([np.where(p == max(p))[0][0] for p in PK])
+        self.clusters = np.array([np.where(p == min(p))[0][0] for p in PK])
 
     def _get_centroids(self):
         """Calculates coordinates of centroids based on the coordinates of all the points assigned to the centroid"""
