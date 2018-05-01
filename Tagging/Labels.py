@@ -14,19 +14,18 @@ from skimage import color
 import KMeans as km
 
 
-def NIUs():
-    return [1325996, 142, 142]
+def NIUs():  # Faltan NIUs
+    return 1325996, 142, 142
 
 
 def loadGT(fileName):
-    """@brief   Loads the file with groundtruth content
+    """Loads the file with groundtruth content
 
-    @param  fileName  STRING    name of the file with groundtruth
+    :param str fileName: name of the file with groundtruth
 
-    @return groundTruth LIST    list of tuples of ground truth data
-                                (Name, [list-of-labels])
+    :rtype: list[(str, numpy.ndarray)]
+    :return: list of tuples of ground truth data. (Name, [list-of-labels])
     """
-
     groundTruth = []
     fd = open(fileName, 'r')
     for line in fd:
@@ -38,106 +37,110 @@ def loadGT(fileName):
 
 
 def evaluate(description, GT, options):
-    """@brief   EVALUATION FUNCTION
-    @param description LIST of color name lists: contain one lsit of color labels for every images tested
-    @param GT LIST images to test and the real color names (see  loadGT)
-    @options DICT  contains options to control metric, ...
-    @return mean_score,scores mean_score FLOAT is the mean of the scores of each image
-                              scores     LIST contain the similiraty between the ground truth list of color names and the obtained
+    """EVALUATION FUNCTION
+
+    :param list description: lists of color name, contain one list of color labels for every images tested
+    :param list GT: images to test and the real color names (see :func:`loadGT`)
+    :param dict options: contains options to control metric, ...
+
+    :rtype: (float, list[float])
+    :return:
+        mean_score: is the mean of the scores of each image\n
+        scores: contain the similiraty between the ground truth list of color names and the obtained
     """
-#########################################################
-##  YOU MUST REMOVE THE REST OF THE CODE OF THIS FUNCTION
-##  AND CHANGE FOR YOUR OWN CODE
-#########################################################
+    #########################################################
+    # YOU MUST REMOVE THE REST OF THE CODE OF THIS FUNCTION
+    # AND CHANGE FOR YOUR OWN CODE TODO
+    #########################################################
     scores = np.random.rand(len(description),1)
     return sum(scores)/len(description), scores
 
 
-
 def similarityMetric(Est, GT, options):
-    """@brief   SIMILARITY METRIC
-    @param Est LIST  list of color names estimated from the image ['red','green',..]
-    @param GT LIST list of color names from the ground truth
-    @param options DICT  contains options to control metric, ...
-    @return S float similarity between label LISTs
-    """
+    """SIMILARITY METRIC
 
-    if options == None:
+    :param list Est: list of color names estimated from the image ['red','green',..]
+    :param list GT: list of color names from the ground truth
+    :param dict options: contains options to control metric, ...
+
+    :rtype: float
+    :return: S similarity between label LISTs
+    """
+    if options is None:
         options = {}
-    if not 'metric' in options:
+    if 'metric' not in options:
         options['metric'] = 'basic'
 
-#########################################################
-##  YOU MUST REMOVE THE REST OF THE CODE OF THIS FUNCTION
-##  AND CHANGE FOR YOUR OWN CODE
-#########################################################
-    if options['metric'].lower() == 'basic'.lower():
+    options['metric'] = options['metric'].lower()
+    #########################################################
+    # YOU MUST REMOVE THE REST OF THE CODE OF THIS FUNCTION
+    # AND CHANGE FOR YOUR OWN CODE TODO
+    #########################################################
+    if options['metric'] == 'basic':
         import random
         return random.uniform(0, 1)
     else:
         return 0
 
+
 def getLabels(kmeans, options):
-    """@brief   Labels all centroids of kmeans object to their color names
+    """Labels all centroids of kmeans object to their color names
 
-    @param  kmeans  KMeans      object of the class KMeans
-    @param  options DICTIONARY  options necessary for labeling
+    :param KMeans.KMeans kmeans: object of the class KMeans
+    :param dict options: options necessary for labeling
 
-    @return colors  LIST    colors labels of centroids of kmeans object
-    @return ind     LIST    indexes of centroids with the same color label
+    :rtype: (list[str], list[int])
+    :returns:
+        colors: labels of centroids of kmeans object\n
+        ind: indexes of centroids with the same color label
     """
-
-#########################################################
-##  YOU MUST REMOVE THE REST OF THE CODE OF THIS FUNCTION
-##  AND CHANGE FOR YOUR OWN CODE
-#########################################################
-##  remind to create composed labels if the probability of
-##  the best color label is less than  options['single_thr']
-    meaningful_colors = ['color'+'%d'%i for i in range(kmeans.K)]
-    unique = range(kmeans.K)
+    #########################################################
+    # YOU MUST REMOVE THE REST OF THE CODE OF THIS FUNCTION
+    # AND CHANGE FOR YOUR OWN CODE TODO
+    #########################################################
+    # remind to create composed labels if the probability of
+    # the best color label is less than  options['single_thr']
+    meaningful_colors = ['color' + str(i) for i in xrange(kmeans.K)]
+    unique = xrange(kmeans.K)
     return meaningful_colors, unique
 
 
 def processImage(im, options):
-    """@brief   Finds the colors present on the input image
+    """Finds the colors present on the input image
 
-    @param  im      LIST    input image
-    @param  options DICTIONARY  dictionary with options
+    :param numpy.ndarray im: input image
+    :param dict options: dictionary with options
 
-    @return colors  LIST    colors of centroids of kmeans object
-    @return indexes LIST    indexes of centroids with the same label
-    @return kmeans  KMeans  object of the class KMeans
+    :rtype: (list[str], list[int], KMeans.KMeans)
+    :returns:
+        colors: name of colors of centroids of kmeans object\n
+        indexes: indexes of centroids with the same label\n
+        kmeans: object of the class KMeans
     """
+    #########################################################
+    # YOU MUST ADAPT THE CODE IN THIS FUNCTIONS TO: TODO
+    #########################################################
 
-#########################################################
-##  YOU MUST ADAPT THE CODE IN THIS FUNCTIONS TO:
-##  1- CHANGE THE IMAGE TO THE CORRESPONDING COLOR SPACE FOR KMEANS
-##  2- APPLY KMEANS ACCORDING TO 'OPTIONS' PARAMETER
-##  3- GET THE NAME LABELS DETECTED ON THE 11 DIMENSIONAL SPACE
-#########################################################
+    # 1- CHANGE THE IMAGE TO THE CORRESPONDING COLOR SPACE FOR KMEANS
+    options['colorspace'] = options['colorspace'].lower()
 
-##  1- CHANGE THE IMAGE TO THE CORRESPONDING COLOR SPACE FOR KMEANS
-    if options['colorspace'].lower() == 'ColorNaming'.lower():
+    if options['colorspace'] == 'colornaming':
         pass
-    elif options['colorspace'].lower() == 'RGB'.lower():
+    elif options['colorspace'] == 'rgb':
         pass
-    elif options['colorspace'].lower() == 'Lab'.lower():
+    elif options['colorspace'] == 'lab':
         pass
 
-##  2- APPLY KMEANS ACCORDING TO 'OPTIONS' PARAMETER
-    if options['K']<2: # find the bes K
-        kmeans = km.KMeans(im, 0, options)
-        kmeans.bestK()
-    else:
-        kmeans = km.KMeans(im, options['K'], options)
-        kmeans.run()
+    # 2- APPLY KMEANS ACCORDING TO 'OPTIONS' PARAMETER
+    kmeans = km.KMeans(im, options['K'], options)
+    kmeans.run()
 
-##  3- GET THE NAME LABELS DETECTED ON THE 11 DIMENSIONAL SPACE
-    if options['colorspace'].lower() == 'RGB'.lower():
+    # 3- GET THE NAME LABELS DETECTED ON THE 11 DIMENSIONAL SPACE
+    if options['colorspace'] == 'rgb':
         pass
 
-#########################################################
-##  THE FOLLOWING 2 END LINES SHOULD BE KEPT UNMODIFIED
-#########################################################
+    #########################################################
+    # THE FOLLOWING 2 END LINES SHOULD BE KEPT UNMODIFIED
+    #########################################################
     colors, which = getLabels(kmeans, options)
     return colors, which, kmeans
