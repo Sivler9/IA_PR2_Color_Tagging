@@ -114,6 +114,7 @@ class KMeans:
 
         c = []
         if self.options['km_init'] == 'first':
+            # lento -> c = np.unique(self.X, axis=1)[:self.K]
             for k in self.X:
                 k = k.tolist()
                 if k not in c:
@@ -121,20 +122,17 @@ class KMeans:
                     if len(c) == self.K:
                         break
         elif self.options['km_init'] == 'random':
-            c = np.random.rand(self.K, self.X.shape[1]) * 255  # RGB
-            '''i = self.K + int(np.sqrt(self.X.shape[0]))
-            while i:
-                i -= 1
-                k = np.random.choice(self.X).tolist()
+            for k in np.random.randint(0, self.X.shape[0], size=self.K + int(np.sqrt(self.X.shape[0]))):
+                k = self.X[k].tolist()
                 if k not in c:
                     c.append(k)
                     if len(c) == self.K:
-                        break'''
+                        break
         elif self.options['km_init'] == 'uniform':
             c = [rgb_to_line(k + 1) for k in xrange(self.K)]
         else:  # TODO - Opciones extra. ej. puntos con distancia maxima en el espacio, separados uniformemente ...
             print("'km_init' unspecified, using 'really_random'")
-            c = np.random.rand(self.K, self.X.shape[1])*255  # RGB
+            c = np.random.rand(self.K, self.X.shape[-1])*255  # RGB
 
         if len(c) < self.K:
             print("La imagen tiene menos de " + str(self.K) + " colores, se han encontrado " + str(len(c)))
@@ -151,11 +149,10 @@ class KMeans:
         self.old_centroids = self.centroids.copy()
 
         for k in xrange(self.K):
-            a = np.mean(self.X[np.where(self.clusters == k), :], axis=1)
+            a = np.mean(self.X[np.where(self.clusters == k)], axis=0)
             if not np.allclose(a, np.array([np.nan, np.nan, np.nan]), equal_nan=True):
                 self.centroids[k] = a
-            else:
-                self.centroids[k] = np.array([0]*self.X.shape[-1])  # TODO - cambiar por lo que tocaria
+            # else: self.centroids[k] = np.array([0]*self.X.shape[-1])  # TODO - cambiar por lo que tocaria
 
     def _converges(self):
         """Checks if there is a difference between current and old centroids"""
@@ -177,8 +174,29 @@ class KMeans:
             self.bestK()
             return
 
-        # self.options['max_iter'] = 10
-        # self.options['tolerance'] = 1
+        if True:
+            from sklearn.cluster import KMeans as camins
+            # Los resultados de sklearn coinciden visualmente, pero falla mas que lo nuestro el test 5
+            # Tambien es mas lento para algritmo 'full', que hay que usar para que coincida con los test
+
+            if self.options['max_iter'] == np.inf:
+                self.options['max_iter'] = 300
+
+            # self.options['max_iter'] = 10
+            # self.options['tolerance'] = 1
+
+            kmeans = camins(n_clusters=self.K, init=self.centroids, n_init=1, max_iter=self.options['max_iter'],
+                tol=self.options['tolerance'], algorithm='full').fit(self.X)
+            self.centroids = kmeans.cluster_centers_
+            self.clusters = kmeans.labels_
+            if self.options['verbose']:
+                self.plot()
+
+            # self._init_rest(self.K)
+            # self._iterate(True)
+            # while self.options['max_iter'] > self.num_iter and not self._converges():
+            #     self._iterate(False)
+            return
 
         self._iterate(True)
         while self.options['max_iter'] > self.num_iter and not self._converges():
@@ -207,15 +225,25 @@ class KMeans:
 
     def fitting(self):
         """:return: a value describing how well the current kmeans fits the data\n:rtype: float"""
-        #######################################################
-        # # YOU MUST REMOVE THE REST OF THE CODE OF THIS FUNCTION
-        # # AND CHANGE FOR YOUR OWN CODE TODO
-        #######################################################
-        score = 0
+        def fisher():
+            media = np.mean(self.X, axis=0).reshape(-1, 3)
+            media_k, between_k = self.centroids.copy(), []
+
+            for k in xrange(self.K):
+                cluster = self.X[np.where(self.clusters == k)]
+                between_k.append(np.mean(distance(cluster, media_k[k].reshape(-1, 3))))
+
+            within = np.mean(distance(media_k, media))
+            between = np.mean(between_k)
+            return within/between
+
         if self.options['fitting'] == 'fisher':
-            bet = 0
-            wit = 0
-            return np.random.rand(1)
+            if self.K == 0:
+                return np.nan  # within/between = 0/0
+            elif self.K == 1:
+                return np.inf  # within/between = algo/0
+            else:
+                return fisher()
         else:
             return np.random.rand(1)
 
