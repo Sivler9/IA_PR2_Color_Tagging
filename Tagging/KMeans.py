@@ -174,7 +174,7 @@ class KMeans:
             self.bestK()
             return
 
-        if True:
+        if False:
             from sklearn.cluster import KMeans as camins
             # Los resultados de sklearn coinciden visualmente, pero falla mas que lo nuestro el test 5
             # Tambien es mas lento para algritmo 'full', que hay que usar para que coincida con los test

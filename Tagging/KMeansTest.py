@@ -4,6 +4,11 @@
 @author: Ramon
 """
 
+import sys
+
+reload(sys)
+sys.setdefaultencoding('utf8')
+
 from skimage import io
 from skimage.transform import rescale
 import numpy as np
@@ -39,10 +44,10 @@ if __name__ == "__main__":
         plt.xlabel('K')
         plt.ylabel('fitting score')
         plt.draw()
-        plt.pause(0.01)
-    
+        plt.pause(1.01)
+
     print k_m.centroids
-    
+
     plt.figure(3)
     k_m.plot()
 #plt.savefig('foo.png', bbox_inches='tight')
