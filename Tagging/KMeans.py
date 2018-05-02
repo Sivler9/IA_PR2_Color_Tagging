@@ -12,6 +12,8 @@ reload(sys)
 sys.setdefaultencoding('utf8')
 
 import numpy as np
+import ColorNaming
+from skimage import color
 import matplotlib.pyplot as plt
 from sklearn.decomposition import PCA
 import mpl_toolkits.mplot3d.axes3d as axes3d
@@ -50,16 +52,38 @@ class KMeans:
         :param numpy.ndarray X: list of all pixel values. Usually a numpy array containing an image NxMx3.
             Color-space position must be at deepest array.
         """
-        self.X = X.reshape(-1, X.shape[-1])
+        self.X = X.reshape(1, -1, X.shape[-1])
 
-        # TODO colorspace
-        if self.options['colorspace'] == 'rgb':
-            pass
-            '''elif self.options['colorspace'] == 'lab':
-            for i in xrange(self.X.shape[0]):
-                self.X[i] = ColorNaming.RGB2Lab(self.X[i])'''  # TODO Usar la funcio que de las probabilidades
-        else:
-            print("'colorspace' unspecified, using 'rgb'")
+        if self.options['colorspace'] != self.options['use_space']:
+            if self.options['colorspace'] != 'rgb':
+                self.X = color.convert_colorspace(self.X, self.options['colorspace'], 'RGB')
+
+            if self.options['use_space'] == 'rgb':
+                pass
+            elif self.options['use_space'] == 'hsv':
+                self.X = color.convert_colorspace(self.X, 'RGB', 'HSV')
+            elif self.options['use_space'] == 'cie':
+                self.X = color.convert_colorspace(self.X, 'RGB', 'RGB CIE')
+            elif self.options['use_space'] == 'xyz':
+                self.X = color.convert_colorspace(self.X, 'RGB', 'XYZ')
+            elif self.options['use_space'] == 'yuv':
+                self.X = color.convert_colorspace(self.X, 'RGB', 'YUV')
+            elif self.options['use_space'] == 'yiq':
+                self.X = color.convert_colorspace(self.X, 'RGB', 'YIQ')
+            elif self.options['use_space'] == 'ypbpr':
+                self.X = color.convert_colorspace(self.X, 'RGB', 'YPbPr')
+            elif self.options['use_space'] == 'ycbcr':
+                self.X = color.convert_colorspace(self.X, 'RGB', 'YCbCr')
+            elif self.options['use_space'] == 'lab':
+                pass
+                # self.X = ColorNaming.RGB2Lab(self.X.reshape(-1, X.shape[-1]))
+            elif self.options['use_space'] == 'colornaming':  # Usar la funcio que de las probabilidades
+                pass
+                # self.X = ColorNaming.ImColorNamingTSELabDescriptor(self.X.reshape(-1, X.shape[-1]))
+            else:
+                print("'use_space' unspecified, using 'rgb'")
+
+        self.X = self.X.reshape(-1, X.shape[-1])
 
     def _init_options(self, options):
         """Initialization of options in case some fields are left undefined
@@ -78,9 +102,12 @@ class KMeans:
             options['fitting'] = 'fisher'
         if 'colorspace' not in options:
             options['colorspace'] = 'rgb'
+        if 'use_space' not in options:
+            options['use_space'] = 'rgb'
 
         options['km_init'] = options['km_init'].lower()
         options['fitting'] = options['fitting'].lower()
+        options['use_space'] = options['use_space'].lower()
         options['colorspace'] = options['colorspace'].lower()
 
         self.options = options

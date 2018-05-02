@@ -52,7 +52,7 @@ def evaluate(description, GT, options):
     # YOU MUST REMOVE THE REST OF THE CODE OF THIS FUNCTION
     # AND CHANGE FOR YOUR OWN CODE TODO
     #########################################################
-    scores = np.random.rand(len(description),1)
+    scores = np.random.rand(len(description), 1)
     return sum(scores)/len(description), scores
 
 
