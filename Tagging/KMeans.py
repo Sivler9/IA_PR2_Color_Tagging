@@ -7,7 +7,8 @@ import matplotlib.pyplot as plt
 import mpl_toolkits.mplot3d.axes3d as axes3d
 from sklearn.decomposition import PCA
 from sklearn.metrics.pairwise import euclidean_distances
-import sklearn.discriminant_analysis as d_a
+from sklearn.metrics.pairwise import pairwise_distances_argmin
+import sklearn.metrics as metricas
 
 
 def distance(X, C):
@@ -101,7 +102,14 @@ class KMeans():
         depends on self.options['km_init']
         """
         if self.options['km_init'].lower() == 'first':
-            self.centroids = np.copy(self.X[:self.K])  # copy first K elements of X
+            #self.centroids = np.unique(self.X, axis=0)[:self.K]  # copy first K elements of X
+            '''x = np.random.rand(self.X.shape[1])
+            y = self.X.dot(x) #"y" array de dimensiones Px1
+            unique, index = np.unique(y.round(decimals=8), return_index=True)#Redondeamos los valores de "y" a 4 decimales y cogemos los valores unicos
+            self.centroids = np.copy(self.X[np.sort(index)][:self.K])'''
+            unique, index = np.unique(self.X,axis=0, return_index=True)
+            index = np.sort(index)
+            self.centroids = np.array(self.X[index[:self.K]])
             '''
             self.centroids = []
             i = 0
@@ -113,42 +121,59 @@ class KMeans():
                     break
             '''
         else:
-            self.centroids = np.random.rand(self.K, self.X.shape[1])
+            maxtmp = self.X.max(axis=0)
+            mintmp = self.X.min(axis=0)
+            centroids = np.zeros((self.X.shape[1],self.K))
+            for i in range(self.X.shape[1]):
+                centroids[i] = np.random.uniform(low=mintmp[i],high=maxtmp[i],size=self.K)
+            self.centroids = np.array(centroids.transpose())
 
 
     def _cluster_points(self):
         """@brief   Calculates the closest centroid of all points in X
         """
+        '''
         distancias = distance(self.X,self.centroids)
-        #for i,distancia in enumerate(distancias):
-            #self.clusters[i] = np.argmin(distancia)
-        for i in range(self.X.shape[0]):
+        for i,distancia in enumerate(distancias):
+            self.clusters[i] = np.argmin(distancia)
+        '''
+        self.clusters = pairwise_distances_argmin(self.X, self.centroids)
+
+        '''for i in range(self.X.shape[0]):
             distanciaTemporal = np.inf
             valorFinal = -1
             for j, distanciaActual in enumerate(distancias[i]):
                 if distanciaTemporal > distanciaActual:
                     distanciaTemporal = distanciaActual
                     valorFinal = j
-            self.clusters[i] = valorFinal
+            self.clusters[i] = valorFinal'''
 
     def _get_centroids(self):
         """@brief   Calculates coordinates of centroids based on the coordinates 
                     of all the points assigned to the centroid
         """
-        self.old_centroids = self.centroids
-        for i in range(self.centroids.shape[0]):
-            tempIndex = np.where(self.clusters == i)[0]
-            self.centroids[i] = np.mean(self.X[tempIndex], axis=0)
+        self.old_centroids = np.copy(self.centroids)
+        self.centroids = np.array([self.X[self.clusters == i].mean(0) for i in range(self.K)])
+        if np.isnan(self.centroids).any():
+            mask = np.where(np.isnan(self.centroids).all(axis=1))[0]
+            self.centroids[mask] = self.old_centroids[mask]
+        '''
+            for i in range(self.centroids.shape[0]):
+                tempIndex = np.where(self.clusters == i)[0]
+                if len(tempIndex) > 0:
+                    self.centroids[i] = np.mean(self.X[tempIndex], axis=0)'''
 
 
     def _converges(self):
         """@brief   Checks if there is a difference between current and old centroids
         """
-        #return np.allclose(self.centroids, self.old_centroids, self.options['tolerance'])
+        valor = np.allclose(self.centroids, self.old_centroids, self.options['tolerance'])
+        return valor
+        '''
         for i,centroide in enumerate(self.centroids):
             if(euclidean_distances(centroide.reshape(1, -1),self.old_centroids[i].reshape(1, -1)) > self.options['tolerance']):
                 return False
-        return True
+        return True'''
 
     def _iterate(self, show_first_time=True):
         """@brief   One iteration of K-Means algorithm. This method should 
@@ -190,19 +215,18 @@ class KMeans():
         #######################################################
         self._init_rest(4)
         self.run()
-        fit = self.fitting()
+        #fit = self.fitting()
         return 4
 
     def fitting(self):
         """@brief  return a value describing how well the current kmeans fits the data
         """
-        #######################################################
-        ##  YOU MUST REMOVE THE REST OF THE CODE OF THIS FUNCTION
-        ##  AND CHANGE FOR YOUR OWN CODE
-        #######################################################
-        if self.options['fitting'].lower() == 'fisher':
-            #LDA = d_a.LinearDiscriminantAnalysis().fit(self.X,self.centroids).score(self.X,self.centroids)
-            return np.random.rand(1)
+        if self.options['fitting'].lower() == 'fisher' and self.K == 1:
+            return 1
+        elif self.options['fitting'].lower() == 'fisher' and self.K > 1:
+            return 1/(metricas.calinski_harabaz_score(self.X, self.clusters)*(self.K -1)/(self.X.shape[0]-self.K)) #calinski = (Between_Variance/Whithin_Variance)*(N-k)/(K-1)
+        elif self.options['fitting'].lower() == 'silhouette':
+            return metricas.silhouette_score(self.X,self.clusters)
         else:
             return np.random.rand(1)
 
