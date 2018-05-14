@@ -50,9 +50,9 @@ class KMeans():
         sets X an as an array of data in vector form (PxD  where P=N*M and D=3 in the above example)
         """
         if len(X.shape) >= 3:
-            self.X = X.reshape(-1, X.shape[2])
+            self.X = X.reshape(-1, X.shape[2]).astype(np.float64)
         else:
-            self.X = np.copy(X)
+            self.X = np.copy(X.astype(np.float64))
 
     def _init_options(self, options):
         """@brief Initialization of options in case some fields are left undefined
@@ -102,24 +102,9 @@ class KMeans():
         depends on self.options['km_init']
         """
         if self.options['km_init'].lower() == 'first':
-            #self.centroids = np.unique(self.X, axis=0)[:self.K]  # copy first K elements of X
-            '''x = np.random.rand(self.X.shape[1])
-            y = self.X.dot(x) #"y" array de dimensiones Px1
-            unique, index = np.unique(y.round(decimals=8), return_index=True)#Redondeamos los valores de "y" a 4 decimales y cogemos los valores unicos
-            self.centroids = np.copy(self.X[np.sort(index)][:self.K])'''
             unique, index = np.unique(self.X,axis=0, return_index=True)
             index = np.sort(index)
             self.centroids = np.array(self.X[index[:self.K]])
-            '''
-            self.centroids = []
-            i = 0
-            for pixel in self.X:
-                if pixel not in self.centroids:
-                    self.centroids = np.append(self.centroids, pixel)
-                    i += 1
-                if i == self.K:
-                    break
-            '''
         else:
             maxtmp = self.X.max(axis=0)
             mintmp = self.X.min(axis=0)
@@ -132,21 +117,7 @@ class KMeans():
     def _cluster_points(self):
         """@brief   Calculates the closest centroid of all points in X
         """
-        '''
-        distancias = distance(self.X,self.centroids)
-        for i,distancia in enumerate(distancias):
-            self.clusters[i] = np.argmin(distancia)
-        '''
         self.clusters = pairwise_distances_argmin(self.X, self.centroids)
-
-        '''for i in range(self.X.shape[0]):
-            distanciaTemporal = np.inf
-            valorFinal = -1
-            for j, distanciaActual in enumerate(distancias[i]):
-                if distanciaTemporal > distanciaActual:
-                    distanciaTemporal = distanciaActual
-                    valorFinal = j
-            self.clusters[i] = valorFinal'''
 
     def _get_centroids(self):
         """@brief   Calculates coordinates of centroids based on the coordinates 
@@ -157,23 +128,12 @@ class KMeans():
         if np.isnan(self.centroids).any():
             mask = np.where(np.isnan(self.centroids).all(axis=1))[0]
             self.centroids[mask] = self.old_centroids[mask]
-        '''
-            for i in range(self.centroids.shape[0]):
-                tempIndex = np.where(self.clusters == i)[0]
-                if len(tempIndex) > 0:
-                    self.centroids[i] = np.mean(self.X[tempIndex], axis=0)'''
 
 
     def _converges(self):
         """@brief   Checks if there is a difference between current and old centroids
         """
-        valor = np.allclose(self.centroids, self.old_centroids, self.options['tolerance'])
-        return valor
-        '''
-        for i,centroide in enumerate(self.centroids):
-            if(euclidean_distances(centroide.reshape(1, -1),self.old_centroids[i].reshape(1, -1)) > self.options['tolerance']):
-                return False
-        return True'''
+        return np.allclose(self.centroids, self.old_centroids, self.options['tolerance'])
 
     def _iterate(self, show_first_time=True):
         """@brief   One iteration of K-Means algorithm. This method should 
@@ -213,7 +173,7 @@ class KMeans():
         ##  YOU MUST REMOVE THE REST OF THE CODE OF THIS FUNCTION
         ##  AND CHANGE FOR YOUR OWN CODE
         #######################################################
-        self._init_rest(4)
+        self._init_rest(3)
         self.run()
         #fit = self.fitting()
         return 4
