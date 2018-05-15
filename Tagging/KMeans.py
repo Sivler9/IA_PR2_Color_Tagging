@@ -1,182 +1,145 @@
-#!/usr/bin/python
-# -*- coding: utf-8 -*-
-"""
-Contains:
- Class :class:`KMeans`\n
- Function :func:`distance`
 """
 
-import sys
-
-reload(sys)
-sys.setdefaultencoding('utf8')
-
-import random
+@author: ramon, bojana
+"""
 import numpy as np
 import matplotlib.pyplot as plt
-from sklearn.decomposition import PCA
-import ColorNaming
 import mpl_toolkits.mplot3d.axes3d as axes3d
+from sklearn.decomposition import PCA
+from sklearn.metrics.pairwise import euclidean_distances
+from sklearn.metrics.pairwise import pairwise_distances_argmin
+import sklearn.metrics as metricas
 
 
 def distance(X, C):
-    """Calculates the distance between each pixcel and each centroid.
+    """@brief   Calculates the distance between each pixcel and each centroid 
 
-    :param numpy.ndarray X: PxD 1st set of data points (usually data points).
-    :param numpy.ndarray C: KxD 2nd set of data points (usually cluster centroids points).
+    @param  X  numpy array PxD 1st set of data points (usually data points)
+    @param  C  numpy array KxD 2nd set of data points (usually cluster centroids points)
 
-    :rtype: numpy.ndarray
-    :return: PxK position ij is the distance between the i-th point of X and the j-th point of C.
+    @return dist: PxK numpy array position ij is the distance between the 
+    	i-th point of the first set an the j-th point of the second set
     """
-    def dist(f, t):
-        assert f.size == t.size
-        return np.sqrt(np.sum(np.square(f - t)))
-
-    #########################################################
-    # # YOU MUST REMOVE THE REST OF THE CODE OF THIS FUNCTION
-    # # AND CHANGE FOR YOUR OWN CODE
-    #########################################################
-    PK = np.ndarray((X.shape[0], C.shape[0]))
-    for i, x in enumerate(X):
-        for j, c in enumerate(C):
-            PK[i][j] = dist(x, c)
-    return PK
+    return euclidean_distances(X,C)
 
 
-class KMeans:
+class KMeans():
+
     def __init__(self, X, K, options=None):
-        """Constructor of KMeans class
-
-        :param numpy.ndarray X: input data
-        :param int K: number of centroids
-        :param dict or None options: dctionary with options
+        """@brief   Constructor of KMeans class
+        
+        @param  X   LIST    input data
+        @param  K   INT     number of centroids
+        @param  options DICT dctionary with options
         """
-        self.pca = None
-        self._init_options(options if options else {})     # DICT options
-        self._init_X(X)                                    # LIST data coordinates
-        self._init_rest(K)                                 # Initializes de rest of the object
+
+        self._init_X(X)  # LIST data coordinates
+        self._init_options(options)  # DICT options
+        self._init_rest(K)  # Initializes de rest of the object
+
+    #############################################################
+    ##  THIS FUNCTION CAN BE MODIFIED FROM THIS POINT, if needed
+    #############################################################
 
     def _init_X(self, X):
-        """Initialization of all pixels.
-        Sets X an as an array of data in vector form (PxD where P=N*M and D=3 in the above example).
+        """@brief Initialization of all pixels
+        
+        @param  X   LIST    list of all pixel values. Usually it will be a numpy 
+                            array containing an image NxMx3
 
-        :param numpy.ndarray X: list of all pixel values. Usually a numpy array containing an image NxMx3.
+        sets X an as an array of data in vector form (PxD  where P=N*M and D=3 in the above example)
         """
-        self.X = X.reshape(-1, 3)
-
-        # TODO color_space
-        if self.options['color_space'] == 'rgb':
-            pass
-        elif self.options['color_space'] == 'color_naming':
-            for i in xrange(self.X.shape[0]):
-                self.X[i] = ColorNaming.RGB2Lab(self.X[i])  # TODO Usar la funcio que de las probabilidades
+        if len(X.shape) >= 3:
+            self.X = X.reshape(-1, X.shape[2]).astype(np.float64)
         else:
-            print("'color_space' unspecified, using 'rgb'")
+            self.X = np.copy(X.astype(np.float64))
 
     def _init_options(self, options):
-        """Initialization of options in case some fields are left undefined
+        """@brief Initialization of options in case some fields are left undefined
+        
+        @param  options DICT dctionary with options
 
-        :param dict options: dictionary with options sets de options parameters
+			sets de options parameters
         """
-        if 'km_init' not in options:
+        if options == None:
+            options = {}
+        if not 'km_init' in options:
             options['km_init'] = 'first'
-        if 'verbose' not in options:
+        if not 'verbose' in options:
             options['verbose'] = False
-        if 'tolerance' not in options:
+        if not 'tolerance' in options:
             options['tolerance'] = 0
-        if 'max_iter' not in options:
+        if not 'max_iter' in options:
             options['max_iter'] = np.inf
-        if 'fitting' not in options:
-            options['fitting'] = 'fisher'
-        if 'color_space' not in options:
-            options['color_space'] = 'rgb'
-
-        options['km_init'] = options['km_init'].lower()
-        options['fitting'] = options['fitting'].lower()
-        options['color_space'] = options['color_space'].lower()
+        if not 'fitting' in options:
+            options['fitting'] = 'Fisher'
 
         self.options = options
 
-    def _init_rest(self, K):
-        """Initialization of the remainig data in the class.
+    #############################################################
+    ##  THIS FUNCTION CAN BE MODIFIED FROM THIS POINT, if needed
+    #############################################################
 
-        :param int K: number of centroids
+    def _init_rest(self, K):
+        """@brief   Initialization of the remainig data in the class.
+        
+        @param  options DICT dctionary with options
         """
-        self.K = K                                              # INT number of clusters
+        self.K = K  # INT number of clusters
         if self.K > 0:
-            self._init_centroids()                              # LIST centroids coordinates
+            self._init_centroids()  # LIST centroids coordinates
             self.old_centroids = np.empty_like(self.centroids)  # LIST coordinates of centroids from previous iteration
-            self.clusters = np.zeros(len(self.X))           # LIST list that assignes each element of X into a cluster
-            self._cluster_points()                              # sets the first cluster assignation
-        self.num_iter = 0                                       # INT current iteration
-        #############################################################
-        # # THIS FUNCTION CAN BE MODIFIED FROM THIS POINT, if needed
-        #############################################################
+            self.clusters = np.zeros(len(self.X))  # LIST list that assignes each element of X into a cluster
+            self._cluster_points()  # sets the first cluster assignation
+        self.num_iter = 0  # INT current iteration
+
+    #############################################################
+    ##  THIS FUNCTION CAN BE MODIFIED FROM THIS POINT, if needed
+    #############################################################
 
     def _init_centroids(self):
-        """Initialization of centroids depends on self.options['km_init']"""
-        def rgb_to_line(n):
-            assert n <= self.K
-            n = format(n*(256**3)//(self.K + 1), '06x')
-            return int(n[:2], 16), int(n[2:4], 16), int(n[4:], 16)
+        """@brief Initialization of centroids
+        depends on self.options['km_init']
+        """
+        if self.options['km_init'].lower() == 'first':
+            unique, index = np.unique(self.X,axis=0, return_index=True)
+            index = np.sort(index)
+            self.centroids = np.array(self.X[index[:self.K]])
+        else:
+            maxtmp = self.X.max(axis=0)
+            mintmp = self.X.min(axis=0)
+            centroids = np.zeros((self.X.shape[1],self.K))
+            for i in range(self.X.shape[1]):
+                centroids[i] = np.random.uniform(low=mintmp[i],high=maxtmp[i],size=self.K)
+            self.centroids = np.array(centroids.transpose())
 
-        if self.X.shape[0] < self.K:
-            print("La imagen tiene menos de " + str(self.K) + " pixeles, usando K igual a " + str(self.X.shape[0]))
-            self.K = self.X.shape[0]
-
-        c = []
-        if self.options['km_init'] == 'first':
-            for k in self.X:
-                k = k.tolist()
-                if k not in c:
-                    c.append(k)
-                    if len(c) == self.K:
-                        break
-        elif self.options['km_init'] == 'random':
-            i = self.K + int(np.sqrt(self.X.shape[0]))
-            while i:
-                i -= 1
-                k = np.random.choice(self.X).tolist()
-                if k not in c:
-                    c.append(k)
-                    if len(c) == self.K:
-                        break
-        elif self.options['km_init'] == 'uniform':
-            c = [rgb_to_line(k + 1) for k in xrange(self.K)]
-        else:  # TODO - Opciones extra. ej. puntos con distancia maxima en el espacio, separados uniformemente ...
-            print("'km_init' unspecified, using 'really_random'")
-            c = np.random.rand(self.K, self.X.shape[1])*255  # RGB
-
-        if len(c) < self.K:
-            print("La imagen tiene menos de " + str(self.K) + " colores, se han encontrado " + str(len(c)))
-            self.K = len(c)
-
-        self.centroids = np.array(c)
 
     def _cluster_points(self):
-        """Calculates the closest centroid of all points in X"""
-        PK = distance(self.X, self.centroids)
-        self.clusters = np.array([np.where(p == min(p))[0][0] for p in PK])
+        """@brief   Calculates the closest centroid of all points in X
+        """
+        self.clusters = pairwise_distances_argmin(self.X, self.centroids)
 
     def _get_centroids(self):
-        """Calculates coordinates of centroids based on the coordinates of all the points assigned to the centroid"""
-        s = np.zeros(self.centroids.shape[0])
-        c = np.zeros((self.centroids.shape[0], self.X.shape[1]))
+        """@brief   Calculates coordinates of centroids based on the coordinates 
+                    of all the points assigned to the centroid
+        """
+        self.old_centroids = np.copy(self.centroids)
+        self.centroids = np.array([self.X[self.clusters == i].mean(0) for i in range(self.K)])
+        if np.isnan(self.centroids).any():
+            mask = np.where(np.isnan(self.centroids).all(axis=1))[0]
+            self.centroids[mask] = self.old_centroids[mask]
 
-        for i, x in enumerate(self.X):
-            s[self.clusters[i]] += 1
-            c[self.clusters[i]] += x
-
-        self.old_centroids = self.centroids
-        self.centroids = np.array([n/s[i] if s[i] else n for i, n in enumerate(c)])
 
     def _converges(self):
-        """Checks if there is a difference between current and old centroids"""
-        return any(n > self.options['tolerance'] for n in np.abs(self.centroids - self.old_centroids).reshape(-1))
+        """@brief   Checks if there is a difference between current and old centroids
+        """
+        return np.allclose(self.centroids, self.old_centroids, self.options['tolerance'])
 
     def _iterate(self, show_first_time=True):
-        """One iteration of K-Means algorithm. This method should reassigne all the points from X
-        to their closest centroids and based on that, calculate the new position of centroids."""
+        """@brief   One iteration of K-Means algorithm. This method should 
+                    reassigne all the points from X to their closest centroids
+                    and based on that, calculate the new position of centroids.
+        """
         self.num_iter += 1
         self._cluster_points()
         self._get_centroids()
@@ -184,9 +147,10 @@ class KMeans:
             self.plot(show_first_time)
 
     def run(self):
-        """Runs K-Means algorithm until it converges or until the number
-        of iterations is smaller than the maximum number of iterations."""
-        if not self.K:
+        """@brief   Runs K-Means algorithm until it converges or until the number
+                    of iterations is smaller than the maximum number of iterations.=
+        """
+        if self.K == 0:
             self.bestK()
             return
 
@@ -197,45 +161,48 @@ class KMeans:
                 self._iterate(False)
 
     def bestK(self):
-        """Runs K-Means multiple times to find the best K for the current data given the 'fitting' method.
-        In case of Fisher elbow method is recommended.
-
-        At the end, self.centroids and self.clusters contains the information for the best K.
-        NO need to rerun KMeans.
-
-        :return: the best K found.
-        :rtype: int"""
+        """@brief   Runs K-Means multiple times to find the best K for the current 
+                    data given the 'fitting' method. In cas of Fisher elbow method 
+                    is recommended.
+                    
+                    at the end, self.centroids and self.clusters contains the 
+                    information for the best K. NO need to rerun KMeans.
+           @return B is the best K found.
+        """
         #######################################################
-        # # YOU MUST REMOVE THE REST OF THE CODE OF THIS FUNCTION
-        # # AND CHANGE FOR YOUR OWN CODE TODO
+        ##  YOU MUST REMOVE THE REST OF THE CODE OF THIS FUNCTION
+        ##  AND CHANGE FOR YOUR OWN CODE
         #######################################################
-        self._init_rest(4)
+        self._init_rest(3)
         self.run()
-        fit = self.fitting()
+        #fit = self.fitting()
         return 4
 
     def fitting(self):
-        """:return: a value describing how well the current kmeans fits the data\n:rtype: float"""
-        #######################################################
-        # # YOU MUST REMOVE THE REST OF THE CODE OF THIS FUNCTION
-        # # AND CHANGE FOR YOUR OWN CODE TODO
-        #######################################################
-        if self.options['fitting'] == 'fisher':
-            return np.random.rand(1)
+        """@brief  return a value describing how well the current kmeans fits the data
+        """
+        if self.options['fitting'].lower() == 'fisher' and self.K == 1:
+            return 1
+        elif self.options['fitting'].lower() == 'fisher' and self.K > 1:
+            return 1/(metricas.calinski_harabaz_score(self.X, self.clusters)*(self.K -1)/(self.X.shape[0]-self.K)) #calinski = (Between_Variance/Whithin_Variance)*(N-k)/(K-1)
+        elif self.options['fitting'].lower() == 'silhouette':
+            return metricas.silhouette_score(self.X,self.clusters)
         else:
             return np.random.rand(1)
 
     def plot(self, first_time=True):
-        """Plots the results"""
-        # markers_shape = 'ov^<>1234sp*hH+xDd'
-        markers_color = 'bgrcmybgrcmybgrcmyk'
+        """@brief   Plots the results
+        """
+
+        # markersshape = 'ov^<>1234sp*hH+xDd'
+        markerscolor = 'bgrcmybgrcmybgrcmyk'
         if first_time:
             plt.gcf().add_subplot(111, projection='3d')
             plt.ion()
             plt.show()
 
         if self.X.shape[1] > 3:
-            if not self.pca:
+            if not hasattr(self, 'pca'):
                 self.pca = PCA(n_components=3)
                 self.pca.fit(self.X)
             Xt = self.pca.transform(self.X)
@@ -246,8 +213,8 @@ class KMeans:
 
         for k in range(self.K):
             plt.gca().plot(Xt[self.clusters == k, 0], Xt[self.clusters == k, 1], Xt[self.clusters == k, 2],
-                '.' + markers_color[k])
-            plt.gca().plot(Ct[k, 0:1], Ct[k, 1:2], Ct[k, 2:3], 'o'+'k', markersize=12)
+                           '.' + markerscolor[k])
+            plt.gca().plot(Ct[k, 0:1], Ct[k, 1:2], Ct[k, 2:3], 'o' + 'k', markersize=12)
 
         if first_time:
             plt.xlabel('dim 1')
