@@ -1,6 +1,14 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
-"""@author: ramon, bojana"""
+"""
+Functions:
+ - :func:`NIUs()<NIUs>`
+ - :func:`loadGT(fileName)<loadGT>`
+ - :func:`evaluate(description, GT, options)<evaluate>`
+ - :func:`similarityMetric(Est, GT, options)<similarityMetric>`
+ - :func:`getLabels(kmeans, options)<getLabels>`
+ - :func:`processImage(im, options)<processImage>`
+"""
 
 import sys
 
@@ -14,8 +22,8 @@ from skimage import color
 import KMeans as km
 
 
-def NIUs():  # Faltan NIUs
-    return 1325996, 142, 142
+def NIUs():
+    return 1325996, 1396552, 1424504
 
 
 def loadGT(fileName):
@@ -68,19 +76,52 @@ def similarityMetric(Est, GT, options):
     """
     if options is None:
         options = {}
+
     if 'metric' not in options:
         options['metric'] = 'basic'
 
     options['metric'] = options['metric'].lower()
-    #########################################################
-    # YOU MUST REMOVE THE REST OF THE CODE OF THIS FUNCTION
-    # AND CHANGE FOR YOUR OWN CODE TODO
-    #########################################################
+
     if options['metric'] == 'basic':
+        return float(sum(el in Est for el in GT))/float(len(Est))
+    if options['metric'] == 'random':
         import random
         return random.uniform(0, 1)
+    # TODO - Extras
     else:
         return 0
+
+
+# 2lab -> i, a = ("2", "10")[0], ("A", "D50", "D55", "D65", "D75", "E")[3]  # TODO - Hacer que se pueda escoger, puede
+
+space_change = {'rgb': lambda im:   im,
+                'hsv':              color.rgb2hsv,  # No cartesianas
+                'rgb cie':          color.rgb2rgbcie,
+                'yiq':              color.rgb2yiq,
+                'yuv':              color.rgb2yuv,
+                'ycbcr':            color.rgb2ycbcr,
+                'ypbpr':            color.rgb2ypbpr,
+                'xyz':              color.rgb2xyz,
+                'lab':              color.rgb2lab,
+                'lch': lambda im:   color.lab2lch(color.rgb2lab(im)),  # No cartesianas
+                'luv':              color.rgb2luv,
+                'hed':              color.rgb2hed,
+                'colornaming':      cn.ImColorNamingTSELabDescriptor}
+
+space_return = {'rgb': lambda im:   im,
+                'hsv':              color.hsv2rgb,  # No cartesianas
+                'rgb cie':          color.rgbcie2rgb,
+                'yiq':              color.yiq2rgb,
+                'yuv':              color.yuv2rgb,
+                'ycbcr':            color.ycbcr2rgb,
+                'ypbpr':            color.ypbpr2rgb,
+                'xyz':              color.xyz2rgb,
+                'lab':              color.lab2rgb,
+                'lch': lambda im:   color.lab2rgb(color.lch2lab(im)),  # No cartesianas
+                'luv':              color.luv2rgb,
+                'hed':              color.hed2rgb}
+
+ucolor = [unicode(n) for n in cn.colors]
 
 
 def getLabels(kmeans, options):
@@ -94,15 +135,25 @@ def getLabels(kmeans, options):
         colors: labels of centroids of kmeans object\n
         ind: indexes of centroids with the same color label
     """
-    #########################################################
-    # YOU MUST REMOVE THE REST OF THE CODE OF THIS FUNCTION
-    # AND CHANGE FOR YOUR OWN CODE TODO
-    #########################################################
-    # remind to create composed labels if the probability of
-    # the best color label is less than  options['single_thr']
-    meaningful_colors = ['color' + str(i) for i in xrange(kmeans.K)]
-    unique = xrange(kmeans.K)
-    return meaningful_colors, unique
+    meaningful_colors, unique = [], []
+
+    centers = kmeans.centroids.reshape(1, -1, kmeans.centroids.shape[-1])
+    if options['colorspace'] in space_return:
+        centers = space_return[options['colorspace']](centers)
+        centers = cn.ImColorNamingTSELabDescriptor(centers)
+
+    for c in centers[0]:  # TODO - Que funcione
+        c = c.flatten()
+        a = np.argpartition(c, -2)[-2:]
+        l = ucolor[a[1]]
+        if c[a[1]] < options['single_thr']:
+            l = (l + ucolor[a[0]]) if ucolor[a[0]] > l else (ucolor[a[0]] + l)
+        meaningful_colors.append(l)
+
+    for c in np.unique(meaningful_colors):
+        unique.append(np.where(meaningful_colors == c)[0].tolist())
+
+    return np.unique(meaningful_colors)[::-1], unique  # TODO - Ordenar por frequencia
 
 
 def processImage(im, options):
@@ -117,30 +168,24 @@ def processImage(im, options):
         indexes: indexes of centroids with the same label\n
         kmeans: object of the class KMeans
     """
-    #########################################################
-    # YOU MUST ADAPT THE CODE IN THIS FUNCTIONS TO: TODO
-    #########################################################
 
     # 1- CHANGE THE IMAGE TO THE CORRESPONDING COLOR SPACE FOR KMEANS
     options['colorspace'] = options['colorspace'].lower()
 
-    if options['colorspace'] == 'colornaming':
-        pass
-    elif options['colorspace'] == 'rgb':
-        pass
-    elif options['colorspace'] == 'lab':
-        pass
+    if options['colorspace'] in space_change:
+        im = space_change[options['colorspace']](im.astype(np.uint8))  # convertir a enteros [0, 255]
+    else:
+        print("'colorspace' unspecified, using 'rgb'")
 
     # 2- APPLY KMEANS ACCORDING TO 'OPTIONS' PARAMETER
     kmeans = km.KMeans(im, options['K'], options)
+
+    if options['K'] < 2:
+        options['K'] = kmeans.bestK()
+
     kmeans.run()
 
     # 3- GET THE NAME LABELS DETECTED ON THE 11 DIMENSIONAL SPACE
-    if options['colorspace'] == 'rgb':
-        pass
-
-    #########################################################
-    # THE FOLLOWING 2 END LINES SHOULD BE KEPT UNMODIFIED
-    #########################################################
     colors, which = getLabels(kmeans, options)
+
     return colors, which, kmeans

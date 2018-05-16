@@ -1,1 +1,1 @@
-["Black", "Pink", "Purple", "Orange"]
+["Grey", "Blue", "White"]

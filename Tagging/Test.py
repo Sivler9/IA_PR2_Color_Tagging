@@ -16,7 +16,6 @@ import numpy as np
 import ColorNaming as cn
 
 import os.path
-
 if os.path.isfile('TeachersLabels.py') and True:
     student = False
     import TeachersLabels as lb
@@ -36,7 +35,7 @@ def TestInfo(Test,Options,GTFile, NImage):
     File = TestFolder + '%02d'%Test + 'Test' + '.txt'
     if student:
         with open(File) as infile:
-            data= json.load(infile)
+            data = json.load(infile)
         Options = data['o']
         GTFile = data['f']
         NImage = data['i']
@@ -50,7 +49,7 @@ def TestFinalCheck(lab1=0,ind1=0,lab2=0,ind2=0):
     File = TestFolder + 'final.txt'
     if student:
         with open(File) as infile:
-            data= json.load(infile)
+            data = json.load(infile)
         l1 = data['l1']
         i1 = data['i1']
         l2 = data['l2']
@@ -92,13 +91,11 @@ def CheckTest(Message, D, File, student):
             DT = json.load(infile)
         try:
             if type(D) is list:
-#                same = (D==DT)
                 same = sum([d in DT for d in D])==len(DT)
             else:
                 if type(D) is float:
                     D = np.array(D)
                 DT = np.array(DT)
-#                same = (D==DT).all()
                 same = np.allclose(D,DT,rtol=0.0001,atol=0)
         except:
             pass
@@ -119,7 +116,7 @@ def TestSolution(Test, Options, GTFile, NImage, tests):
     GT = lb.loadGT(ImageFolder + GTFile)
 
     im = io.imread(ImageFolder + GT[NImage][0])
-    im = rescale(im, 0.7, preserve_range=True)
+#    im = rescale(im, 0.7, preserve_range=True)
 
     Messages = []
     Results = []
@@ -243,7 +240,7 @@ def TestSolution(Test, Options, GTFile, NImage, tests):
 
         if k_m.centroids.shape[1]==3:
             k_m.centroids = cn.ImColorNamingTSELabDescriptor(k_m.centroids)
-        lab,_ = lb.getLabels(k_m, Options)
+        lab,ind = lb.getLabels(k_m, Options)
         Results.append(CheckTest(Message, lab, File, student))
         Messages.append(Message)
 
@@ -295,7 +292,7 @@ def TestSolution(Test, Options, GTFile, NImage, tests):
             print Messages[i] + "    " + ("OK" if Results[i] else "FAIL")
         print "\n\n"
         return sum(Results),len(Results)
-    return 0,0
+    return 1,1
 
 ######################################################################################################
 import time
@@ -303,10 +300,10 @@ t=time.time()
 GTFile = 'LABELSlarge.txt'
 Options = {'colorspace':'RGB', 'K':6, 'km_init':'first', 'fitting':'Fisher', 'single_thr':0.6, 'metric':'basic', 'verbose':False}
 score=[]
-score.append(TestSolution(1, Options, GTFile, 1, [1,2,3,4,5,6,7,8,9,10,11]))
-score.append(TestSolution(2, Options, GTFile, 23, [1,3,4,5,6,7,8,9,10,11]))
+score.append(TestSolution(1, Options, GTFile, 11, [1,2,3,4,5,6,7,8,9,10,11]))
+score.append(TestSolution(2, Options, GTFile, 123, [1,3,4,5,6,7,8,9,10,11]))
 Options = {'colorspace':'ColorNaming', 'K':3, 'km_init':'first', 'fitting':'Fisher', 'single_thr':0.6, 'metric':'basic', 'verbose':False}
-score.append(TestSolution(3, Options, GTFile, 43, [1,3,4,5,6,7,8,9,10,11]))
+score.append(TestSolution(3, Options, GTFile, 143, [1,3,4,5,6,7,8,9,10,11]))
 
 Options = {'colorspace':'Lab', 'K':3, 'km_init':'first', 'fitting':'Fisher', 'single_thr':0.6, 'metric':'basic', 'verbose':False}
 score.append(TestSolution(4, Options, GTFile, 43, [1,3,4,5,6,9,10,11]))
@@ -319,14 +316,14 @@ im = io.imread(ImageFolder + GT[0][0])
 im = rescale(im, 0.5, preserve_range=True)
 
 Final = sum([x[0] for x in score])
-Over =  sum([x[1] for x in score])
+Over = sum([x[1] for x in score])
 
 print "NIUs: ",lb.NIUs()
-print "Final Score: %d / %d"%(Final,Over)
+print "Final Score: %d / %d   Final mark: %f"%(Final,Over, 5.0*Final/Over)
 
 Options = {'colorspace':'RGB', 'K':6, 'km_init':'random', 'fitting':'Fisher', 'single_thr':0.6, 'metric':'basic', 'verbose':False}
 lab1,ind1,k_m = lb.processImage(im, Options)
 Options = {'colorspace':'HSV', 'K':0, 'km_init':'first', 'fitting':'Fisher', 'single_thr':0.6, 'metric':'basic', 'verbose':False}
 lab2,ind2,k_m = lb.processImage(im, Options)
 TestFinalCheck(lab1,ind1,lab2,ind2)
-print "\n\nyour code lasted for %f seconds. Teachers version lasted for 4 seconds"%(time.time()-t)
+print "\n\nyour code lasted for %f seconds. Teachers version lasted for 10 seconds"%(time.time()-t)

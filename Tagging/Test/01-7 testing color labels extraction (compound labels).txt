@@ -1,1 +1,1 @@
-["BrownOrange", "OrangeYellow", "BrownGreen", "OrangePink"]
+["BlueGreen", "GreenPink", "GreenPurple", "BluePurple"]
