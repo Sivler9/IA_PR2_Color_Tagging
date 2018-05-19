@@ -1,5 +1,6 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
+
 """
 Classes:
  - :class:`KMeans`\n
@@ -16,7 +17,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from sklearn.decomposition import PCA
 import mpl_toolkits.mplot3d.axes3d as axes3d
-from sklearn.metrics import euclidean_distances  # , pairwise_distances_argmin
+from sklearn.metrics import euclidean_distances, calinski_harabaz_score, silhouette_score  # pairwise_distances_argmin
 
 
 def distance(X, C):
@@ -92,13 +93,11 @@ class KMeans:
         # # THIS FUNCTION CAN BE MODIFIED FROM THIS POINT, if needed
         #############################################################
 
+    init = {'first',
+            'random'}
+
     def _init_centroids(self):
         """Initialization of centroids depends on self.options['km_init']"""
-        def rgb_to_line(n):
-            assert n <= self.K
-            n = format(n*(256**3)//(self.K + 1), '06x')
-            return int(n[:2], 16), int(n[2:4], 16), int(n[4:], 16)
-
         if self.X.shape[0] < self.K:
             print("La imagen tiene menos de " + str(self.K) + " pixeles, usando K igual a " + str(self.X.shape[0]))
             self.K = self.X.shape[0]
@@ -119,8 +118,6 @@ class KMeans:
                     centros.append(pixel)
                     if len(centros) == self.K:
                         break
-        elif self.options['km_init'] == 'uniform' and self.options['colorspace'] == 'rgb':
-            centros = [rgb_to_line(pixel + 1) for pixel in xrange(self.K)]
         else:  # TODO - Opciones extra. ej. puntos con distancia maxima en el espacio, separados uniformemente ...
             print("'km_init' unspecified, using 'really_random'")
             centros = np.random.rand(self.K, self.X.shape[-1])*255  # RGB
@@ -144,7 +141,7 @@ class KMeans:
             a = np.mean(self.X[np.where(self.clusters == k)], axis=0)
             if not np.allclose(a, np.array([np.nan]*self.X.shape[-1]), equal_nan=True):
                 self.centroids[k] = a
-            # else: self.centroids[k] = np.array([0]*self.X.shape[-1])  # TODO - cambiar por lo que tocaria
+            # else: self.centroids[k] = np.array([0]*self.X.shape[-1])
 
     def _converges(self):
         """Checks if there is a difference between current and old centroids"""
@@ -200,6 +197,10 @@ class KMeans:
                 best = k
         return best
 
+    fit = {'fisher': None,  # Esta definido dentro de fitting()
+           'calinski_harabaz': calinski_harabaz_score,
+           'silhouette': silhouette_score}
+
     def fitting(self):
         """:return: a value describing how well the current kmeans fits the data\n:rtype: float"""
         def fisher():
@@ -214,14 +215,14 @@ class KMeans:
             between = np.mean(between_k)
             return within/between
 
-        if self.options['fitting'] == 'fisher':
-            if self.K == 0:
-                return np.nan  # within/between = 0/0
-            elif self.K == 1:
-                return 1  # np.inf  # within/between = algo/0
-            else:
-                return fisher()
-            # TODO - silhouette
+        if self.K == 0:
+            return 0  # np.nan  # fisher -> within/between = 0/0
+        elif self.K == 1:
+            return 1  # np.inf  # fisher -> within/between = algo/0
+        elif self.options['fitting'] == 'fisher':
+            return fisher()
+        elif self.options['fitting'] in KMeans.fit:
+            return KMeans.fit[self.options['fitting']](self.X, self.clusters)
         else:
             return np.random.rand(1)
 

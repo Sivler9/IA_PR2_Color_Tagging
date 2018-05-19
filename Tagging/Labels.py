@@ -1,5 +1,6 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
+
 """
 Functions:
  - :func:`NIUs()<NIUs>`
@@ -19,6 +20,7 @@ import re
 import numpy as np
 import ColorNaming as cn
 from skimage import color
+from sklearn.metrics import jaccard_similarity_score  # No funcionan, GT tiene que tener mismo len() que Est
 import KMeans as km
 
 
@@ -56,12 +58,12 @@ def evaluate(description, GT, options):
         mean_score: is the mean of the scores of each image\n
         scores: contain the similiraty between the ground truth list of color names and the obtained
     """
-    #########################################################
-    # YOU MUST REMOVE THE REST OF THE CODE OF THIS FUNCTION
-    # AND CHANGE FOR YOUR OWN CODE TODO
-    #########################################################
-    scores = np.random.rand(len(description), 1)
+    scores = [similarityMetric(processImage(GT[i], options)[0], description[i], options) for i in xrange(len(GT))]
     return sum(scores)/len(description), scores
+
+
+metrics = {'basic': lambda estimate, truth: sum(im in estimate for im in truth)/float(len(estimate)),
+           '': None}  # TODO - Extras
 
 
 def similarityMetric(Est, GT, options):
@@ -75,25 +77,21 @@ def similarityMetric(Est, GT, options):
     :return: S similarity between label LISTs
     """
     if options is None:
-        options = {}
+        options = {'metric': 'basic'}
 
     if 'metric' not in options:
         options['metric'] = 'basic'
 
     options['metric'] = options['metric'].lower()
 
-    if options['metric'] == 'basic':
-        return float(sum(el in Est for el in GT))/float(len(Est))
-    if options['metric'] == 'random':
-        import random
-        return random.uniform(0, 1)
-    # TODO - Extras
+    if options['metric'] in metrics:
+        return metrics[options['metric']](Est, GT)
     else:
-        return 0
+        return np.random.rand()
 
 
-# 2lab -> i, a = ("2", "10")[0], ("A", "D50", "D55", "D65", "D75", "E")[3]  # TODO - Hacer que se pueda escoger, puede
-
+# a, i = ("A", "D50", "D55", "D65", "D75", "E")[3], ("2", "10")[0]  # rgb2lab(im, a, i)
+# rgb2gray no es reversible
 space_change = {'rgb': lambda im:   im,
                 'hsv':              color.rgb2hsv,  # No cartesianas
                 'rgb cie':          color.rgb2rgbcie,
@@ -143,7 +141,7 @@ def getLabels(kmeans, options):
         centers = cn.ImColorNamingTSELabDescriptor(centers)
 
     for c in centers[0]:
-        c = c.flatten()
+        # a = [index_sub_max, index_max]
         a = np.argpartition(c, -2)[-2:]
         l = ucolor[a[1]]
         if c[a[1]] < options['single_thr']:
@@ -169,12 +167,16 @@ def processImage(im, options):
         kmeans: object of the class KMeans
     """
 
+    if not isinstance(im, np.ndarray):  # EvaluationTest() envia informacion incorrecta
+        return im[1], None, None
+
     # 1- CHANGE THE IMAGE TO THE CORRESPONDING COLOR SPACE FOR KMEANS
     options['colorspace'] = options['colorspace'].lower()
 
     if options['colorspace'] in space_change:
         im = space_change[options['colorspace']](im.astype(np.uint8))  # convertir a enteros [0, 255]
     else:
+        options['colorspace'] = 'rgb'
         print("'colorspace' unspecified, using 'rgb'")
 
     # 2- APPLY KMEANS ACCORDING TO 'OPTIONS' PARAMETER

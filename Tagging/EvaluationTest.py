@@ -3,6 +3,11 @@
 
 @author: ramon
 """
+import sys
+
+reload(sys)
+sys.setdefaultencoding('utf8')
+
 from skimage import io
 import matplotlib.pyplot as plt
 
@@ -18,16 +23,16 @@ if __name__ == "__main__":
 
     ImageFolder = 'Images'
     GTFile = 'LABELSsmall.txt'
-    
+
     GTFile = ImageFolder + '/' + GTFile
     GT = lb.loadGT(GTFile)
 
     DBcolors = []
     for gt in GT:
         print gt[0]
-        im = io.imread(ImageFolder+"/"+gt[0])    
+        im = io.imread(ImageFolder+"/"+gt[0])
         colors,_,_ = lb.processImage(im, options)
         DBcolors.append(colors)
-        
+
     encert,_ = lb.evaluate(DBcolors, GT, options)
     print "Encert promig: "+ '%.2f' % (encert*100) + '%'
