@@ -70,13 +70,9 @@ class KMeans:
             options['max_iter'] = np.inf
         if 'fitting' not in options:
             options['fitting'] = 'fisher'
-        if 'colorspace' not in options:
-            pass  # El test quiere que se use RGB aunque diga lo contrario options
-        options['colorspace'] = 'rgb'
 
         options['km_init'] = options['km_init'].lower()
         options['fitting'] = options['fitting'].lower()
-        options['colorspace'] = options['colorspace'].lower()
 
         self.options = options
 
@@ -211,7 +207,7 @@ class KMeans:
             media_k, between_k = self.centroids.copy(), []
 
             for k in xrange(self.K):
-                cluster = self.X[np.where(self.clusters == k)]
+                cluster = self.X[np.where(self.clusters == k)].reshape(-1, 3)
                 between_k.append(np.mean(distance(cluster, media_k[k].reshape(-1, 3))))
 
             within = np.mean(distance(media_k, media))

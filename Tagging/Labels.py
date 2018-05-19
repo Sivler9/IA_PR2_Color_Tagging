@@ -135,25 +135,25 @@ def getLabels(kmeans, options):
         colors: labels of centroids of kmeans object\n
         ind: indexes of centroids with the same color label
     """
-    meaningful_colors, unique = [], []
+    temp = []
 
     centers = kmeans.centroids.reshape(1, -1, kmeans.centroids.shape[-1])
     if options['colorspace'] in space_return:
         centers = space_return[options['colorspace']](centers)
         centers = cn.ImColorNamingTSELabDescriptor(centers)
 
-    for c in centers[0]:  # TODO - Que funcione
+    for c in centers[0]:
         c = c.flatten()
         a = np.argpartition(c, -2)[-2:]
         l = ucolor[a[1]]
         if c[a[1]] < options['single_thr']:
             l = (l + ucolor[a[0]]) if ucolor[a[0]] > l else (ucolor[a[0]] + l)
-        meaningful_colors.append(l)
+        temp.append(l)
 
-    for c in np.unique(meaningful_colors):
-        unique.append(np.where(meaningful_colors == c)[0].tolist())
+    meaningful_colors = np.unique(temp).tolist()
+    unique = [np.where(np.array(temp) == c)[0].tolist() for c in meaningful_colors]
 
-    return np.unique(meaningful_colors)[::-1], unique  # TODO - Ordenar por frequencia
+    return meaningful_colors, unique
 
 
 def processImage(im, options):
