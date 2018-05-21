@@ -89,9 +89,6 @@ class KMeans:
             self.clusters = np.zeros(len(self.X))           # LIST list that assignes each element of X into a cluster
             self._cluster_points()                              # sets the first cluster assignation
         self.num_iter = 0                                       # INT current iteration
-        #############################################################
-        # # THIS FUNCTION CAN BE MODIFIED FROM THIS POINT, if needed
-        #############################################################
 
     init = {'first',
             'random'}
@@ -178,23 +175,50 @@ class KMeans:
 
     def bestK(self):
         """Runs K-Means multiple times to find the best K for the current data given the 'fitting' method.
-        In case of Fisher TODO - elbow method is recommended.
+        In case of Fisher elbow method is recommended.
 
         At the end, self.centroids and self.clusters contains the information for the best K.
-        TODO - NO need to rerun KMeans.
+        NO need to rerun KMeans.
 
         :rtype: int
         :return: the best K found.
         """
-        fit = 0
-        best = 2
-        for k in xrange(2, 11 + 1):
-            self._init_rest(4)
+        best, center = -1, []
+        if self.options['fitting'] == 'fisher':  # elbow method
+            fit, threshold = np.inf, 2.3
+
+            self._init_rest(2)
             self.run()
-            f = self.fitting()
-            if f > fit:
-                fit = f
-                best = k
+            center.append([self.fitting(), self.centroids, self.clusters])
+
+            self._init_rest(3)
+            self.run()
+            center.append([self.fitting(), self.centroids, self.clusters])
+
+            for k in xrange(4, 11 + 1):
+                self._init_rest(k)
+                self.run()
+
+                center.append([self.fitting(), self.centroids, self.clusters])
+                if (center[-3][0] - center[-2][0]) > (center[-2][0] - center[-1][0])*threshold:
+                    center = center[-2][1:]
+                    best = k - 1
+                    break
+            else:
+                center = center[4][1:]
+                best = 4
+        else:
+            fit = -np.inf
+            for k in xrange(2, 11 + 1):
+                self._init_rest(k)
+                self.run()
+
+                f = self.fitting()
+                if f > fit:
+                    fit, best, center = f, k, [self.centroids, self.clusters]
+
+        self.centroids, self.clusters = center
+
         return best
 
     fit = {'fisher': None,  # Esta definido dentro de fitting()

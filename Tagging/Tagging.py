@@ -4,6 +4,12 @@ Created on Sat Apr 09 12:55:55 2016
 
 @author: Ramon
 """
+
+import sys
+
+reload(sys)
+sys.setdefaultencoding('utf8')
+
 import os
 from skimage import io
 import numpy as np
@@ -15,7 +21,7 @@ import matplotlib.pyplot as plt
 #import time
 
 import os.path
-if os.path.isfile('TeachersLabels.py'): 
+if os.path.isfile('TeachersLabels.py'):
     import TeachersLabels as lb
 else:
     import Labels as lb
@@ -32,22 +38,22 @@ COLORSSPACE = {'key':'colorspace','options_gui':[('RBG','RGB'),('CIE Lab', 'Lab'
 FITTING = {'key':'fitting','options_gui':[('None','None'),('Fisher', 'Fisher'),('Other', 'Other')]}
 CENTROIDSINIT = {'key':'km_init','options_gui':[('First points','first'),('Randomize', 'random'),('Other','Other')]}
 SIMILARITY = {'key':'metric','options_gui':[('Basic','basic'),('Other 1','other1'),('Other 2','other2')]}
- 
+
 class Tagging(Frame):
-  
+
     def __init__(self, parent, options):
         if options == None:
-            options = {}            
+            options = {}
         DefaultOptions = {'colorspace':'RGB', 'K':6, 'km_init':'first', 'verbose':False, 'single_thr':0.6, 'metric':'basic'}
         for op in DefaultOptions:
             if not op in options:
                 options[op] = DefaultOptions[op]
         self.options = options
-        self.K_ant = 0        
+        self.K_ant = 0
         self.num_im=-1
-        Frame.__init__(self, parent)   
+        Frame.__init__(self, parent)
         self.parent = parent
-        self.parent.title("TAGGING")        
+        self.parent.title("TAGGING")
 
         self.F1 = Frame(parent, width=150,borderwidth=2,relief=GROOVE)
         self.F2 = Frame(parent, width=150,borderwidth=2,relief=GROOVE)
@@ -70,7 +76,7 @@ class Tagging(Frame):
         lbl = Label(self.F2, text="Detected")
         lbl.grid(row=0,sticky=W, columnspan=2)
         Frame(self.F2,borderwidth=1,relief=GROOVE,height=2).grid(row=1,sticky=W, columnspan=2)
-        
+
         self.filename = Button(self.F3,text="filename",command=self.ChooseFile)
         self.filename.pack(side=TOP,expand=0)
 
@@ -79,7 +85,7 @@ class Tagging(Frame):
         self.figure=plt.figure(figsize=(2,2), frameon=False)
         self.axes=self.figure.add_subplot(111)
         self.Canvas=FigureCanvasTkAgg(self.figure, master=self.F3)
-#        self.Canvas.show()        
+#        self.Canvas.show()
         self.Canvas.get_tk_widget().pack(side=TOP,fill=BOTH,expand=1 )
         plt.axis('off')
 
@@ -89,7 +95,7 @@ class Tagging(Frame):
         b = Button(self.F4,text=" <<1 ",command=self.Previous)
         b.pack(side=LEFT, pady=3)
         self.im_name = Button(self.F4,text="image",bd=0, command=self.Results)
-        self.im_name.pack(side=LEFT, expand=True)        
+        self.im_name.pack(side=LEFT, expand=True)
         b = Button(self.F4,text=" 1>> ",command=self.Next)
         b.pack(side=LEFT)
         b = Button(self.F4,text=" 10>>> ",command=self.NextFast)
@@ -110,12 +116,12 @@ class Tagging(Frame):
         Frame(F52,borderwidth=1,relief=GROOVE,height=2).pack(fill=X)
         Label(F53, text="Labelling").pack()
         Frame(F53,borderwidth=1,relief=GROOVE,height=2).pack(fill=X)
-        
+
         self.ColorMode = StringVar()
-        self.ColorMode.set(self.options[COLORSSPACE['key']]) 
+        self.ColorMode.set(self.options[COLORSSPACE['key']])
         for text, mode in COLORSSPACE['options_gui']:
             b = Radiobutton(F51, text=text, variable=self.ColorMode, value=mode, command=self.Results)
-            b.pack(anchor=W)        
+            b.pack(anchor=W)
 
         Frame(F51,borderwidth=1,relief=GROOVE,height=2).pack(fill=X)
         Label(F51, text="Grouping", padx=20).pack()
@@ -124,7 +130,7 @@ class Tagging(Frame):
         self.Group.set(True)
         b = Checkbutton(F51, text='Group same label colors', variable=self.Group, command=self.Results)
         b.pack(anchor=W)
-        
+
 
         F521 = Frame(F52)
         F522 = Frame(F52)
@@ -144,25 +150,25 @@ class Tagging(Frame):
 #        Frame(F521,borderwidth=1,relief=GROOVE,width=2).pack(side=RIGHT, fill=Y, padx=2)
 
         self.Fitting = StringVar()
-        self.Fitting.set(self.options[FITTING['key']]) 
+        self.Fitting.set(self.options[FITTING['key']])
 #        f = Frame(F52)
 #        f.pack(side=RIGHT, fill=BOTH,  expand=0)
         for text, mode in FITTING['options_gui']:
             b = Radiobutton(F521, text=text, variable=self.Fitting, value=mode, command=self.Results)
-            b.pack(anchor=W,padx=4)        
-            
+            b.pack(anchor=W,padx=4)
+
         Frame(F522,borderwidth=1,relief=GROOVE,height=2).pack(fill=X)
         Label(F522, text="Centroid Init", padx=20).pack()
         Frame(F522,borderwidth=1,relief=GROOVE,height=2).pack(fill=X)
 #        IM = [('First points','first'),('Randomize', 'random'),('Distribtued','distributed'),('Other','Other')]
 
         self.KMInit = StringVar()
-        self.KMInit.set(self.options[CENTROIDSINIT['key']]) 
+        self.KMInit.set(self.options[CENTROIDSINIT['key']])
         for text, mode in CENTROIDSINIT['options_gui']:
             b = Radiobutton(F522, text=text, variable=self.KMInit, value=mode, command=self.Results)
-            b.pack(anchor=W)        
+            b.pack(anchor=W)
 
-        
+
         self.Thr = StringVar()
         self.Thr.set(self.options['single_thr'])
         f = Frame(F53)
@@ -173,23 +179,23 @@ class Tagging(Frame):
 #        self.Synonymous.set(self.options['synonyms'])
 #        b = Checkbutton(F53, text='Synonymous', variable=self.Synonymous, command=self.Results)
 #        b.pack(anchor=W)
-        
+
         Frame(F53,borderwidth=1,relief=GROOVE,height=2).pack(fill=X)
         Label(F53, text="Similarity Metric", padx=2).pack()
         Frame(F53,borderwidth=1,relief=GROOVE,height=2).pack(fill=X)
         self.Metric = StringVar()
-        self.Metric.set(self.options[SIMILARITY['key']]) 
+        self.Metric.set(self.options[SIMILARITY['key']])
         for text, mode in SIMILARITY['options_gui']:
             b = Radiobutton(F53, text=text, variable=self.Metric, value=mode, command=self.Results)
-            b.pack(anchor=W)        
-            
-        
+            b.pack(anchor=W)
+
+
     def ChooseFile(self):
         filename = tkFileDialog.askopenfilename(initialdir='Images', filetypes=[("Text files","*.txt")])
         if filename =='':
             return
         self.ImageFolder = os.path.dirname(filename)
-        self.filename['text'] = os.path.basename(filename) 
+        self.filename['text'] = os.path.basename(filename)
         self.GT = lb.loadGT(filename)
         self.num_im = 0
         self.Results()
@@ -200,37 +206,37 @@ class Tagging(Frame):
             self.num_im=0
         elif self.num_im<0:
             self.num_im=0
-            return            
-        self.Results()       
+            return
+        self.Results()
 
     def PreviousFast(self):
         self.num_im -= 10
         if self.num_im<0:
             self.num_im=0
-        self.Results()       
+        self.Results()
 
     def Next(self):
         self.num_im += 1
         if self.num_im>=len(self.GT):
             self.num_im=len(self.GT)-1
             return
-        self.Results()       
+        self.Results()
 
     def NextFast(self):
         self.num_im += 10
         if self.num_im>=len(self.GT):
             self.num_im=len(self.GT)-1
-        self.Results()       
+        self.Results()
 
-    def Results(self):        
+    def Results(self):
         if self.num_im<0 or self.num_im>=len(self.GT):
             return
         #self.parent.config(cursor="wait")
         self.parent.update()
-        
+
         self.im_name['text'] = self.GT[self.num_im][0]
-        im = io.imread(self.ImageFolder+"/"+self.GT[self.num_im][0])    
-        
+        im = io.imread(self.ImageFolder+"/"+self.GT[self.num_im][0])
+
         self.options['K']          = int(self.K.get())
         self.options['single_thr'] = float(self.Thr.get())
 #        self.options['synonyms']   = self.Synonymous.get()
@@ -258,8 +264,8 @@ class Tagging(Frame):
         if not self.Group.get():
             self.labels = [w for ww in [[w]*len(z) for w,z in zip(self.labels,self.which)] for w in ww]
             self.which = [[w] for ww in self.which for w in ww]
-        
- 
+
+
        # get percentages for every label
         percent = np.zeros((len(self.which),1))
         for i,w in enumerate(self.which):
@@ -268,7 +274,7 @@ class Tagging(Frame):
         percent = percent*100/self.km.clusters.size
 
        # get color for every label from image
-        
+
         sh = im.shape;
         im = np.reshape(im, (-1, im.shape[2]))
         colors = np.zeros((len(self.which),3))
@@ -278,7 +284,7 @@ class Tagging(Frame):
             colors[i] /= len(w)
         im = np.reshape(im, sh)
         self.im = im
-        
+
         self.CBgt = self.CreateCheckList(self.F1, self.GT[self.num_im][1])
         self.CBdetected = self.CreateCheckList(self.F2, self.labels, percent, colors)
         l = Label(self.F2,text='similarity: '+'%.2f' % (lb.similarityMetric(self.labels, self.GT[self.num_im][1], self.options)*100)+'%')
@@ -289,9 +295,9 @@ class Tagging(Frame):
         #self.parent.config(cursor="")
         self.parent.update()
         self.Segment()
-        
+
 #        self.ShowImage(im)
-        
+
     def Segment(self):
         all_widgetes = self.F2.winfo_children()
         cb = [w for w in all_widgetes if w.winfo_class() == 'Checkbutton']
@@ -307,14 +313,14 @@ class Tagging(Frame):
                 ims[self.km.clusters==k]=lab_colors[i]
         ims = np.reshape(ims, self.im.shape)
         self.ShowImage(np.hstack((ims,self.im)))
-            
+
     def ShowImage(self,im):
         self.axes.imshow(im)
         plt.axis('off')
-        self.Canvas.draw()        
-        
+        self.Canvas.draw()
+
     def CreateCheckList(self, frame, labels, values=None, colors=None):
-       
+
         all_widgetes = [w for w in frame.winfo_children() if w.winfo_class() == 'Checkbutton']
         for w in all_widgetes:
             w.destroy()
@@ -327,7 +333,7 @@ class Tagging(Frame):
 
         for i in range(len(labels)):
             var.append(BooleanVar())
-            
+
             fgc = "black"
             if colors is not None:
                 mycolor = '#%02x%02x%02x' % (colors[i,0], colors[i,1], colors[i,2])
@@ -335,7 +341,7 @@ class Tagging(Frame):
                     fgc = "#FFFFFF"
             else:
                 mycolor = frame.cget('bg')
-                
+
             cb = Checkbutton(frame, text=labels[i], state=DISABLED, variable=var[i], bg=mycolor, disabledforeground=fgc, anchor=W)
 #            cb.pack(anchor=W, fill=X, padx=2)
             cb.grid(row=i+2,column=0,sticky=W+E)
@@ -343,8 +349,8 @@ class Tagging(Frame):
                 cb = Label(frame, text=add_text[i], bg=mycolor, fg=fgc, anchor=E)
                 cb.grid(row=i+2,column=1,sticky=W+E+N+S)
             frame.grid_rowconfigure(i+2, weight=0)
-                
-        
+
+
         return var
 
     def CheckLabels(self):
@@ -355,13 +361,13 @@ class Tagging(Frame):
         for i in range(len(self.GT[self.num_im][1])):
             if self.GT[self.num_im][1][i] in self.labels:
                 self.CBgt[i].set(True)
-            
+
 
 def main():
-  
+
     root = Tk()
     root.geometry("700x500+10+10")
-    
+
     options = {'colorspace':'RGB', 'K':6, 'km_init':'first', 'verbose':False, 'single_thr':0.6, 'metric':'basic', 'fitting':'None'}
     app = Tagging(root, options)
 
@@ -371,11 +377,11 @@ def main():
 
     app.num_im=0
     app.Results()
-    
+
     root.mainloop()
     plt.close("all")
 
-    
+
 
 if __name__ == '__main__':
-    main()  
+    main()

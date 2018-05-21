@@ -184,8 +184,8 @@ def processImage(im, options):
 
     if options['K'] < 2:
         options['K'] = kmeans.bestK()
-
-    kmeans.run()
+    else:
+        kmeans.run()
 
     # 3- GET THE NAME LABELS DETECTED ON THE 11 DIMENSIONAL SPACE
     colors, which = getLabels(kmeans, options)
