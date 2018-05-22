@@ -20,7 +20,7 @@ import re
 import numpy as np
 import ColorNaming as cn
 from skimage import color
-from sklearn.metrics import jaccard_similarity_score  # No funcionan, GT tiene que tener mismo len() que Est
+
 import KMeans as km
 
 

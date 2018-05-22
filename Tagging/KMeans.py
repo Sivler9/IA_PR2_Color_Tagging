@@ -115,6 +115,9 @@ class KMeans:
                     centros.append(pixel)
                     if len(centros) == self.K:
                         break
+        elif self.options['km_init'] == 'kmeans++':
+            from sklearn.cluster import KMeans as camins
+            centros = camins(n_clusters=self.K, init='k-means++', n_init=1, max_iter=0).fit(self.X).cluster_centers_
         else:  # TODO - Opciones extra. ej. puntos con distancia maxima en el espacio, separados uniformemente ...
             print("'km_init' unspecified, using 'really_random'")
             centros = np.random.rand(self.K, self.X.shape[-1])*255  # RGB
