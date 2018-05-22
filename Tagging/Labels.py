@@ -62,8 +62,36 @@ def evaluate(description, GT, options):
     return sum(scores)/len(description), scores
 
 
-metrics = {'basic': lambda estimate, truth: sum(im in estimate for im in truth)/float(len(estimate)),
-           '': None}  # TODO - Extras
+metrics = {'sensitivity, recall, hit rate, or true positive rate (TPR, basic)':
+               lambda tp, tn, fp, fn:                                                               tp/(tp + fn),
+           'specificity or true negative rate (TNR)':
+               lambda tp, tn, fp, fn:                                                               tn/(tn + fp),
+           'precision or positive predictive value (PPV)':
+               lambda tp, tn, fp, fn:                                                               tp/(tp + fp),
+           'negative predictive value (NPV)':
+               lambda tp, tn, fp, fn:                                                               tn/(tn + fn),
+           'miss rate or false negative rate (FNR)':
+               lambda tp, tn, fp, fn:                                                               fn/(fn + tp),
+           'fall-out or false positive rate (FPR)':
+               lambda tp, tn, fp, fn:                                                               fp/(fp + tn),
+           'false discovery rate (FDR)':
+               lambda tp, tn, fp, fn:                                                               fp/(fp + tp),
+           'false omission rate (FOR)':
+               lambda tp, tn, fp, fn:                                                               fn/(fn + tn),
+           'Rand index, accuracy (ACC)':
+               lambda tp, tn, fp, fn:                                              (tp + tn)/(tp + tn + fp + fn),
+           'Jaccard index (J)':
+               lambda tp, tn, fp, fn:                                                          tp/(tp + fp + fn),
+           'Dice index, harmonic mean of precision and sensitivity (F1 score)':
+               lambda tp, tn, fp, fn:                                                      2*tp/(2*tp + fp + fn),
+           'Fowlkes–Mallows index (FM)':
+               lambda tp, tn, fp, fn:                                   np.sqrt((tp/(tp + fp)) + (tp/(tp + fn))),
+           'Matthews correlation coefficient (MCC)':
+               lambda tp, tn, fp, fn:           (tp*tn - fp*fn)/np.sqrt((tp + fp)*(tp + fn)*(tn + fp)*(tn + fn)),
+           'Informedness or Bookmaker Informedness (BM)':
+               lambda tp, tn, fp, fn:                                        (tp/(tp + fn)) + (tn/(tn + fp)) - 1,
+           'Markedness (MK)':
+               lambda tp, tn, fp, fn:                                        (tp/(tp + fp)) + (tn/(tn + fn)) - 1}
 
 
 def similarityMetric(Est, GT, options):
@@ -82,10 +110,13 @@ def similarityMetric(Est, GT, options):
     if 'metric' not in options:
         options['metric'] = 'basic'
 
+    tp, fp = float(sum(im in Est for im in GT)), float(sum(im not in GT for im in Est))
+    tn, fn = len(GT) - tp, len(Est) - fp
+
     options['metric'] = options['metric'].lower()
 
     if options['metric'] in metrics:
-        return metrics[options['metric']](Est, GT)
+        return metrics[options['metric']](tp, tn, fp, fn)
     else:
         return np.random.rand()
 
