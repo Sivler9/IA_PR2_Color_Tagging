@@ -9,6 +9,51 @@ from sklearn.decomposition import PCA
 from sklearn.metrics.pairwise import euclidean_distances
 from sklearn.metrics.pairwise import pairwise_distances_argmin
 import sklearn.metrics as metricas
+import scipy
+import scipy.cluster.vq
+import scipy.spatial.distance
+
+def gap(data, nrefs=3, maxClusters=15):
+    """
+    Calculates KMeans optimal K using Gap Statistic from Tibshirani, Walther, Hastie
+    Params:
+        data: ndarry of shape (n_samples, n_features)
+        nrefs: number of sample reference datasets to create
+        maxClusters: Maximum number of clusters to test for
+    Returns: (optimalK)
+    """
+    gaps = np.zeros((len(range(1, maxClusters)),))
+    for gap_index, k in enumerate(range(1, maxClusters)):
+
+        # Holder for reference dispersion results
+        refDisps = np.zeros(nrefs)
+
+        # For n references, generate random sample and perform kmeans getting resulting dispersion of each loop
+        for i in range(nrefs):
+
+            # Create new random reference set
+            randomReference = np.random.random_sample(size=data.shape)
+
+            # Fit to it
+            km = KMeans(k)
+            km.fit(randomReference)
+
+            refDisp = km.inertia_
+            refDisps[i] = refDisp
+
+        # Fit cluster to original data and create dispersion
+        km = KMeans(k)
+        km.fit(data)
+
+        origDisp = km.inertia_
+
+        # Calculate gap statistic
+        gap = np.log(np.mean(refDisps)) - np.log(origDisp)
+
+        # Assign this loop's gap statistic to gaps
+        gaps[gap_index] = gap
+
+    return gaps.argmax() + 1  # Plus 1 because index of 0 means 1 cluster is optimal, index 2 = 3 clusters are optimal
 
 
 def distance(X, C):
@@ -108,6 +153,9 @@ class KMeans():
         elif self.options['km_init'].lower() == 'custom':
             self.centroids = np.zeros((self.K,self.X.shape[1]))
             for k in range(self.K): self.centroids[k,:] = k*255/(self.K-1)
+        elif self.options['km_init'] == 'kmeans++':
+            from sklearn.cluster import KMeans as camins
+            self.centroids = camins(n_clusters=self.K, init='k-means++', n_init=1, max_iter=1).fit(self.X).cluster_centers_
         else:
             maxtmp = self.X.max(axis=0)
             mintmp = self.X.min(axis=0)
@@ -179,9 +227,43 @@ class KMeans():
         centroids = []
         clusters = []
         bestk = 4
-        self.options['fitting'] ='jump'
+        #self.options['fitting'] ='gap'
         if self.options['fitting'].lower() == 'jump':
             return self.jumpMethod(clusters,centroids)
+
+        elif self.options['fitting'].lower() == 'gap':
+            bestk = gap(self.X, maxClusters=3)
+            self._init_rest(bestk)
+            self.run()
+            return bestk
+        elif self.options['fitting'].lower() == 'fisher':
+            bestk, center = -1, []
+            fit, threshold = np.inf, 2.3
+
+            self._init_rest(2)
+            self.run()
+            center.append([self.fitting(), self.centroids, self.clusters])
+
+            self._init_rest(3)
+            self.run()
+            center.append([self.fitting(), self.centroids, self.clusters])
+
+            for k in xrange(4, 13 + 1):
+                self._init_rest(k)
+                self.run()
+
+                center.append([self.fitting(), self.centroids, self.clusters])
+                if (center[-3][0] - center[-2][0]) > (center[-2][0] - center[-1][0])*threshold:
+                    self.centroids, self.clusters = center[-2][1:]
+                    bestk = k - 1
+                    break
+            else:
+                bestk = 4
+                self.centroids, self.clusters = center[bestk-2][1:]
+
+            self.K = bestk
+            return bestk
+
         else:
             scores = []
             for k in range(2,14):
@@ -206,7 +288,7 @@ class KMeans():
         elif self.options['fitting'].lower() == 'fisher' and self.K > 1:
             return 1/(metricas.calinski_harabaz_score(self.X, self.clusters)*(self.K -1)/(self.X.shape[0]-self.K)) #calinski = (Between_Variance/Whithin_Variance)*(N-k)/(K-1)
         elif self.options['fitting'].lower() == 'silhouette':
-            return metricas.silhouette_score(self.X,self.clusters)[0]
+            return metricas.silhouette_score(self.X,self.clusters)
         elif self.options['fitting'].lower() == 'calinski':
             return metricas.calinski_harabaz_score(self.X, self.clusters)
         else:
@@ -314,125 +396,3 @@ class KMeans():
             plt.gca().set_zlabel('dim 3')
         plt.draw()
         plt.pause(0.01)
-
-
-
-class JumpsMethod(object):
-
-    def __init__(self, data):
-        self.data = data
-        # dimension of 'data'; data.shape[0] would be size of 'data'
-        self.p = data.shape[1]
-        # vector of variances (1 by p)
-        #using squared error rather than Mahalanobis distance' (SJ, p. 12)
-        sigmas = np.var(data, axis=0)
-        ## by following the authors we assume 0 covariance between p variables (SJ, p. 12)
-        # start with zero-matrix (p by p)
-        self.Sigma = np.zeros((self.p, self.p), dtype=np.float32)
-        # fill the main diagonal with variances for
-        np.fill_diagonal(self.Sigma, val=sigmas)
-        # calculate the inversed matrix
-        self.Sigma_inv = np.linalg.inv(self.Sigma)
-
-        self.distortions = np.repeat(0, len(cluster_range) + 1).astype(np.float32)
-
-        # for each k in cluster range implement
-        for k in cluster_range:
-            # initialize and fit the clusterer giving k in the loop
-            KM = KMeans(n_clusters=k, random_state=random_state)
-            KM.fit(self.data)
-            # calculate centers of suggested k clusters
-            centers = KM.cluster_centers_
-            # since we need to calculate the mean of mins create dummy vec
-            for_mean = np.repeat(0, len(self.data)).astype(np.float32)
-
-            # for each observation (i) in data implement
-            for i in range(len(self.data)):
-                # dummy for vec of distances between i-th obs and k-center
-                dists = np.repeat(0, k).astype(np.float32)
-
-                # for each cluster in KMean clusters implement
-                for cluster in range(k):
-                    # calculate the within cluster dispersion
-                    tmp = np.transpose(self.data[i] - centers[cluster])
-                    """ 'using squared error rather than Mahalanobis distance' (SJ, p. 12)
-                    dists[cluster] = tmp.dot(self.Sigma_inv).dot(tmp)"""
-                    dists[cluster] = tmp.dot(tmp)
-
-                # take the lowest distance to a class
-                for_mean[i] = min(dists)
-
-            # take the mean for mins for each observation
-            self.distortions[k] = np.mean(for_mean) / self.p
-
-        self.Y = self.p / 2
-        # the first (by convention it is 0) and the second elements
-        self.jumps = [0] + [self.distortions[1] ** (-self.Y) - 0]
-        self.jumps += [self.distortions[k] ** (-self.Y) \
-                       - self.distortions[k-1] ** (-self.Y) \
-                       for k in range(2, len(self.distortions))]
-
-        # calculate recommended number of clusters
-        self.recommended_cluster_number = np.argmax(np.array(self.jumps))
-
-
-
-    def Distortions(self, cluster_range=range(1, 10 + 1), random_state=0):
-        """ returns a vector of calculated distortions for each cluster number.
-            If the number of clusters is 0, distortion is 0 (SJ, p. 2)
-            'cluster_range' -- range of numbers of clusters for KMeans;
-            'data' -- n by p array """
-        # dummy vector for Distortions
-        self.distortions = np.repeat(0, len(cluster_range) + 1).astype(np.float32)
-
-        # for each k in cluster range implement
-        for k in cluster_range:
-            # initialize and fit the clusterer giving k in the loop
-            KM = KMeans(n_clusters=k, random_state=random_state)
-            KM.fit(self.data)
-            # calculate centers of suggested k clusters
-            centers = KM.cluster_centers_
-            # since we need to calculate the mean of mins create dummy vec
-            for_mean = np.repeat(0, len(self.data)).astype(np.float32)
-
-            # for each observation (i) in data implement
-            for i in range(len(self.data)):
-                # dummy for vec of distances between i-th obs and k-center
-                dists = np.repeat(0, k).astype(np.float32)
-
-                # for each cluster in KMean clusters implement
-                for cluster in range(k):
-                    # calculate the within cluster dispersion
-                    tmp = np.transpose(self.data[i] - centers[cluster])
-                    """ 'using squared error rather than Mahalanobis distance' (SJ, p. 12)
-                    dists[cluster] = tmp.dot(self.Sigma_inv).dot(tmp)"""
-                    dists[cluster] = tmp.dot(tmp)
-
-                # take the lowest distance to a class
-                for_mean[i] = min(dists)
-
-            # take the mean for mins for each observation
-            self.distortions[k] = np.mean(for_mean) / self.p
-
-        return self.distortions
-
-
-    def Jumps(self, Y=None):
-        """ returns a vector of jumps for each cluster """
-        # if Y is not specified use the one that suggested by the authors (SJ, p. 2)
-        if Y is None:
-            self.Y = self.p / 2
-
-        else:
-            self.Y = Y
-
-        # the first (by convention it is 0) and the second elements
-        self.jumps = [0] + [self.distortions[1] ** (-self.Y) - 0]
-        self.jumps += [self.distortions[k] ** (-self.Y) \
-                       - self.distortions[k-1] ** (-self.Y) \
-                       for k in range(2, len(self.distortions))]
-
-        # calculate recommended number of clusters
-        self.recommended_cluster_number = np.argmax(np.array(self.jumps))
-
-        return self.jumps
