@@ -20,6 +20,7 @@ import re
 import numpy as np
 import ColorNaming as cn
 from skimage import color
+from scipy.special import comb
 
 import KMeans as km
 
@@ -58,11 +59,16 @@ def evaluate(description, GT, options):
         mean_score: is the mean of the scores of each image\n
         scores: contain the similiraty between the ground truth list of color names and the obtained
     """
-    scores = [similarityMetric(processImage(GT[i], options)[0], description[i], options) for i in xrange(len(GT))]
+    scores = [similarityMetric(description[i], GT[i][1], options) for i in xrange(len(GT))]
     return sum(scores)/len(description), scores
 
 
-metrics = {'sensitivity, recall, hit rate, or true positive rate (TPR, basic)':
+beta = 1.0
+ucolor = [unicode(n) for n in cn.colors]
+max_labels = len(ucolor) + comb(len(ucolor), 2)
+metrics = {'basic':  # precision or positive predictive value (PPV)
+               lambda tp, tn, fp, fn:                                                               tp/(tp + fp),
+           'sensitivity, recall, hit rate, or true positive rate (TPR)':
                lambda tp, tn, fp, fn:                                                               tp/(tp + fn),
            'specificity or true negative rate (TNR)':
                lambda tp, tn, fp, fn:                                                               tn/(tn + fp),
@@ -78,20 +84,28 @@ metrics = {'sensitivity, recall, hit rate, or true positive rate (TPR, basic)':
                lambda tp, tn, fp, fn:                                                               fp/(fp + tp),
            'false omission rate (FOR)':
                lambda tp, tn, fp, fn:                                                               fn/(fn + tn),
-           'Rand index, accuracy (ACC)':
+           'Rand index or accuracy (ACC)':
                lambda tp, tn, fp, fn:                                              (tp + tn)/(tp + tn + fp + fn),
            'Jaccard index (J)':
                lambda tp, tn, fp, fn:                                                          tp/(tp + fp + fn),
-           'Dice index, harmonic mean of precision and sensitivity (F1 score)':
-               lambda tp, tn, fp, fn:                                                      2*tp/(2*tp + fp + fn),
+           "F-score (beta = %f)" % beta:
+               lambda tp, tn, fp, fn:                    (1 + beta**2)*tp/((1 + beta**2)*tp + (beta**2)*fp + fn),
            'Fowlkes–Mallows index (FM)':
                lambda tp, tn, fp, fn:                                   np.sqrt((tp/(tp + fp)) + (tp/(tp + fn))),
            'Matthews correlation coefficient (MCC)':
                lambda tp, tn, fp, fn:           (tp*tn - fp*fn)/np.sqrt((tp + fp)*(tp + fn)*(tn + fp)*(tn + fn)),
-           'Informedness or Bookmaker Informedness (BM)':
+           'Bookmaker Informedness (BM)':
                lambda tp, tn, fp, fn:                                        (tp/(tp + fn)) + (tn/(tn + fp)) - 1,
            'Markedness (MK)':
-               lambda tp, tn, fp, fn:                                        (tp/(tp + fp)) + (tn/(tn + fn)) - 1}
+               lambda tp, tn, fp, fn:                                        (tp/(tp + fp)) + (tn/(tn + fn)) - 1,
+           'Positive likelihood ratio (LR+)':
+               lambda tp, tn, fp, fn:                                              (tp/(tp + fn))/(fp/(fp + tn)),
+           'Negative likelihood ratio (LR-)':
+               lambda tp, tn, fp, fn:                                              (tn/(tn + fp))/(fn/(fn + tp)),
+           'Diagnostic odds ratio (DOR)':
+               lambda tp, tn, fp, fn:            ((tp/(tp + fn))/(fp/(fp + tn)))/((tn/(tn + fp))/(fn/(fn + tp))),
+           'Confusion matrix':
+               lambda tp, tn, fp, fn:                                             np.array([[tp, fp], [fn, tn]])}
 
 
 def similarityMetric(Est, GT, options):
@@ -110,15 +124,16 @@ def similarityMetric(Est, GT, options):
     if 'metric' not in options:
         options['metric'] = 'basic'
 
-    tp, fp = float(sum(im in Est for im in GT)), float(sum(im not in GT for im in Est))
-    tn, fn = len(GT) - tp, len(Est) - fp
+    tp = float(sum(im in Est for im in GT))     # in  Est   in  GT
+    fp, fn = len(Est) - tp, len(GT) - tp        # in  Est   not GT  # not Est   in GT
+    tn = max_labels - fn - fp - tp              # not Est   not GT
 
     options['metric'] = options['metric'].lower()
 
     if options['metric'] in metrics:
         return metrics[options['metric']](tp, tn, fp, fn)
     else:
-        return np.random.rand()
+        return 0  # np.random.rand()
 
 
 # a, i = ("A", "D50", "D55", "D65", "D75", "E")[3], ("2", "10")[0]  # rgb2lab(im, a, i)
@@ -150,8 +165,6 @@ space_return = {'rgb': lambda im:   im,
                 'luv':              color.luv2rgb,
                 'hed':              color.hed2rgb}
 
-ucolor = [unicode(n) for n in cn.colors]
-
 
 def getLabels(kmeans, options):
     """Labels all centroids of kmeans object to their color names
@@ -169,11 +182,10 @@ def getLabels(kmeans, options):
     centers = kmeans.centroids.reshape(1, -1, kmeans.centroids.shape[-1])
     if options['colorspace'] in space_return:
         centers = space_return[options['colorspace']](centers)
-        centers = cn.ImColorNamingTSELabDescriptor(centers)
+        centers = cn.ImColorNamingTSELabDescriptor(centers if options['colorspace'] == 'rgb' else centers*255.0)
 
     for c in centers[0]:
-        # a = [index_sub_max, index_max]
-        a = np.argpartition(c, -2)[-2:]
+        a = np.argpartition(c, -2)[-2:]  # [index_sub_max, index_max]
         l = ucolor[a[1]]
         if c[a[1]] < options['single_thr']:
             l = (l + ucolor[a[0]]) if ucolor[a[0]] > l else (ucolor[a[0]] + l)

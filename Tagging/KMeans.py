@@ -90,8 +90,7 @@ class KMeans:
             self._cluster_points()                              # sets the first cluster assignation
         self.num_iter = 0                                       # INT current iteration
 
-    init = {'first',
-            'random'}
+    init = {'first', 'random', 'kmeans++'}
 
     def _init_centroids(self):
         """Initialization of centroids depends on self.options['km_init']"""

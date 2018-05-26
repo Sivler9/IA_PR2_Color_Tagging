@@ -24,7 +24,7 @@ else:
     student = True
     import Labels as lb
     import KMeans as km
-
+student = True
 TestFolder = 'Test/'
 ImageFolder = 'Images/'
 if not os.path.isdir(TestFolder):
