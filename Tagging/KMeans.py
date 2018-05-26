@@ -12,6 +12,7 @@ import sklearn.metrics as metricas
 import scipy
 import scipy.cluster.vq
 import scipy.spatial.distance
+from sklearn.cluster import KMeans as camins
 
 def gap(data, nrefs=3, maxClusters=15):
     """
@@ -35,20 +36,20 @@ def gap(data, nrefs=3, maxClusters=15):
             randomReference = np.random.random_sample(size=data.shape)
 
             # Fit to it
-            km = KMeans(k)
+            km = camins(k)
             km.fit(randomReference)
 
             refDisp = km.inertia_
             refDisps[i] = refDisp
 
         # Fit cluster to original data and create dispersion
-        km = KMeans(k)
+        km = camins(k)
         km.fit(data)
 
         origDisp = km.inertia_
 
         # Calculate gap statistic
-        gap = np.log(np.mean(refDisps)) - np.log(origDisp)
+        gap = np.mean(np.log(refDisps)) - np.log(origDisp)
 
         # Assign this loop's gap statistic to gaps
         gaps[gap_index] = gap
@@ -154,7 +155,6 @@ class KMeans():
             self.centroids = np.zeros((self.K,self.X.shape[1]))
             for k in range(self.K): self.centroids[k,:] = k*255/(self.K-1)
         elif self.options['km_init'] == 'kmeans++':
-            from sklearn.cluster import KMeans as camins
             self.centroids = camins(n_clusters=self.K, init='k-means++', n_init=1, max_iter=1).fit(self.X).cluster_centers_
         else:
             maxtmp = self.X.max(axis=0)
@@ -232,7 +232,7 @@ class KMeans():
             return self.jumpMethod(clusters,centroids)
 
         elif self.options['fitting'].lower() == 'gap':
-            bestk = gap(self.X, maxClusters=3)
+            bestk = gap(self.X, maxClusters=14)
             self._init_rest(bestk)
             self.run()
             return bestk
