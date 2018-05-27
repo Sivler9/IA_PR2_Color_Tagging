@@ -17,7 +17,51 @@ import numpy as np
 import matplotlib.pyplot as plt
 from sklearn.decomposition import PCA
 import mpl_toolkits.mplot3d.axes3d as axes3d
+from sklearn.cluster import KMeans as camins
 from sklearn.metrics import euclidean_distances, calinski_harabaz_score, silhouette_score  # pairwise_distances_argmin
+
+
+def gap(data, nrefs=3, maxClusters=15):
+    """
+    Calculates KMeans optimal K using Gap Statistic from Tibshirani, Walther, Hastie
+    Params:
+        data: ndarry of shape (n_samples, n_features)
+        nrefs: number of sample reference datasets to create
+        maxClusters: Maximum number of clusters to test for
+    Returns: (optimalK)
+    """
+    gaps = np.zeros((len(range(1, maxClusters)),))
+    for gap_index, k in enumerate(range(1, maxClusters)):
+
+        # Holder for reference dispersion results
+        refDisps = np.zeros(nrefs)
+
+        # For n references, generate random sample and perform kmeans getting resulting dispersion of each loop
+        for i in range(nrefs):
+
+            # Create new random reference set
+            randomReference = np.random.random_sample(size=data.shape)
+
+            # Fit to it
+            km = camins(k)
+            km.fit(randomReference)
+
+            refDisp = km.inertia_
+            refDisps[i] = refDisp
+
+        # Fit cluster to original data and create dispersion
+        km = camins(k)
+        km.fit(data)
+
+        origDisp = km.inertia_
+
+        # Calculate gap statistic
+        gap = np.mean(np.log(refDisps)) - np.log(origDisp)
+
+        # Assign this loop's gap statistic to gaps
+        gaps[gap_index] = gap
+
+    return gaps.argmax() + 1  # Plus 1 because index of 0 means 1 cluster is optimal, index 2 = 3 clusters are optimal
 
 
 def distance(X, C):
@@ -115,8 +159,7 @@ class KMeans:
                     if len(centros) == self.K:
                         break
         elif self.options['km_init'] == 'kmeans++':
-            from sklearn.cluster import KMeans as camins
-            centros = camins(n_clusters=self.K, init='k-means++', n_init=1, max_iter=0).fit(self.X).cluster_centers_
+            centros = camins(n_clusters=self.K, init='k-means++', n_init=1, max_iter=1).fit(self.X).cluster_centers_
         else:  # TODO - Opciones extra. ej. puntos con distancia maxima en el espacio, separados uniformemente ...
             print("'km_init' unspecified, using 'really_random'")
             centros = np.random.rand(self.K, self.X.shape[-1])*255  # RGB
@@ -185,8 +228,15 @@ class KMeans:
         :rtype: int
         :return: the best K found.
         """
-        best, center = -1, []
-        if self.options['fitting'] == 'fisher':  # elbow method
+        best, center = 15, []
+        if self.options['fitting'] == 'gap':
+            best = gap(self.X)
+            self._init_rest(best)
+            self.run()
+            return best
+        if self.options['fitting'] == 'jump':
+            return self.jumpMethod()
+        elif self.options['fitting'] == 'fisher':  # elbow method
             fit, threshold = np.inf, 2.3
 
             self._init_rest(2)
@@ -197,7 +247,7 @@ class KMeans:
             self.run()
             center.append([self.fitting(), self.centroids, self.clusters])
 
-            for k in xrange(4, 11 + 1):
+            for k in xrange(4, 16 + 1):
                 self._init_rest(k)
                 self.run()
 
@@ -207,11 +257,11 @@ class KMeans:
                     best = k - 1
                     break
             else:
-                center = center[4][1:]
-                best = 4
+                center = center[-2][1:]
+                best = 15
         else:
             fit = -np.inf
-            for k in xrange(2, 11 + 1):
+            for k in xrange(2, 16 + 1):
                 self._init_rest(k)
                 self.run()
 
@@ -223,19 +273,18 @@ class KMeans:
 
         return best
 
-    fit = {'fisher': None,  # Esta definido dentro de fitting()
-           'calinski_harabaz': calinski_harabaz_score,
-           'silhouette': silhouette_score}
+    fit = {'gap': None, 'jump': None, 'fisher': None,  # Estan definidos dentro de fitting()
+           'calinski_harabaz': calinski_harabaz_score}  # , 'silhouette': silhouette_score} peta memoria
 
     def fitting(self):
         """:return: a value describing how well the current kmeans fits the data\n:rtype: float"""
         def fisher():
-            media = np.mean(self.X, axis=0).reshape(-1, 3)
+            media = np.mean(self.X, axis=0).reshape(-1, self.X.shape[-1])
             media_k, between_k = self.centroids.copy(), []
 
             for k in xrange(self.K):
-                cluster = self.X[np.where(self.clusters == k)].reshape(-1, 3)
-                between_k.append(np.mean(distance(cluster, media_k[k].reshape(-1, 3))))
+                cluster = self.X[np.where(self.clusters == k)].reshape(-1, self.X.shape[-1])
+                between_k.append(np.mean(distance(cluster, media_k[k].reshape(-1, self.X.shape[-1]))))
 
             within = np.mean(distance(media_k, media))
             between = np.mean(between_k)
@@ -250,7 +299,70 @@ class KMeans:
         elif self.options['fitting'] in KMeans.fit:
             return KMeans.fit[self.options['fitting']](self.X, self.clusters)
         else:
-            return np.random.rand(1)
+            return calinski_harabaz_score(self.X, self.clusters)  # np.random.rand(1)
+
+    def jumpMethod(self):
+        data = self.X
+        clusters, centroids = [], []
+        # dimension of 'data'; data.shape[0] would be size of 'data'
+        p = data.shape[1]
+        # vector of variances (1 by p)
+        # using squared error rather than Mahalanobis distance' (SJ, p. 12)
+        sigmas = np.var(data, axis=0)
+        # by following the authors we assume 0 covariance between p variables (SJ, p. 12)
+        # start with zero-matrix (p by p)
+        Sigma = np.zeros((p, p), dtype=np.float32)
+        # fill the main diagonal with variances for
+        np.fill_diagonal(Sigma, val=sigmas)
+        # calculate the inversed matrix
+        Sigma_inv = np.linalg.inv(Sigma)
+
+        cluster_range = range(1, 13 + 1)
+        distortions = np.repeat(0, len(cluster_range) + 1).astype(np.float32)
+
+        # for each k in cluster range implement
+        for k in cluster_range:
+            # initialize and fit the clusterer giving k in the loop
+            self._init_rest(k)
+            self.run()
+            centroids.append(self.centroids)
+            clusters.append(self.clusters)
+            # calculate centers of suggested k clusters
+            centers = self.centroids
+            # since we need to calculate the mean of mins create dummy vec
+            for_mean = np.repeat(0, len(data)).astype(np.float32)
+
+            # for each observation (i) in data implement
+            for i in range(len(data)):
+                # dummy for vec of distances between i-th obs and k-center
+                dists = np.repeat(0, k).astype(np.float32)
+
+                # for each cluster in KMean clusters implement
+                for cluster in range(k):
+                    # calculate the within cluster dispersion
+                    tmp = np.transpose(data[i] - centers[cluster])
+                    # using squared error rather than Mahalanobis distance' (SJ, p. 12)
+                    dists[cluster] = tmp.dot(Sigma_inv).dot(tmp)
+                    # dists[cluster] = tmp.dot(tmp)
+
+                # take the lowest distance to a class
+                for_mean[i] = min(dists)
+
+            # take the mean for mins for each observation
+            distortions[k] = np.mean(for_mean) / p
+
+        Y = p / 2
+        # the first (by convention it is 0) and the second elements
+        jumps = [0] + [distortions[1] ** (-Y) - 0]
+        jumps += [distortions[k]**(-Y) - distortions[k-1]**(-Y) for k in range(2, len(distortions))]
+
+        # calculate recommended number of clusters
+        bestK = np.argmax(np.array(jumps))
+        self.centroids = centroids[bestK-1]
+        self.clusters = clusters[bestK-1]
+        self.K = bestK
+
+        return bestK
 
     def plot(self, first_time=True):
         """Plots the results"""

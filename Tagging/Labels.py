@@ -65,7 +65,7 @@ def evaluate(description, GT, options):
 
 beta = 1.0
 ucolor = [unicode(n) for n in cn.colors]
-max_labels = len(ucolor) + comb(len(ucolor), 2)
+max_labels = len(ucolor) + comb(len(ucolor), 2) - 1  # BlackWhite no es possible
 metrics = {'basic':  # precision or positive predictive value (PPV)
                lambda tp, tn, fp, fn:                                                               tp/(tp + fp),
            'sensitivity, recall, hit rate, or true positive rate (TPR)':
@@ -105,7 +105,8 @@ metrics = {'basic':  # precision or positive predictive value (PPV)
            'Diagnostic odds ratio (DOR)':
                lambda tp, tn, fp, fn:            ((tp/(tp + fn))/(fp/(fp + tn)))/((tn/(tn + fp))/(fn/(fn + tp))),
            'Confusion matrix':
-               lambda tp, tn, fp, fn:                                             np.array([[tp, fp], [fn, tn]])}
+               lambda tp, tn, fp, fn:                                             np.array([[tp, fp], [fn, tn]]),
+           'mat': lambda tp, tn, fp, fn:                                                        [tp, fp, fn, tn]}
 
 
 def similarityMetric(Est, GT, options):
@@ -124,7 +125,7 @@ def similarityMetric(Est, GT, options):
     if 'metric' not in options:
         options['metric'] = 'basic'
 
-    tp = float(sum(im in Est for im in GT))     # in  Est   in  GT
+    tp = float(sum(im in GT for im in Est))     # in  Est   in  GT
     fp, fn = len(Est) - tp, len(GT) - tp        # in  Est   not GT  # not Est   in GT
     tn = max_labels - fn - fp - tp              # not Est   not GT
 
@@ -178,13 +179,7 @@ def getLabels(kmeans, options):
         ind: indexes of centroids with the same color label
     """
     temp = []
-
-    centers = kmeans.centroids.reshape(1, -1, kmeans.centroids.shape[-1])
-    if options['colorspace'] in space_return:
-        centers = space_return[options['colorspace']](centers)
-        centers = cn.ImColorNamingTSELabDescriptor(centers if options['colorspace'] == 'rgb' else centers*255.0)
-
-    for c in centers[0]:
+    for c in kmeans.centroids:
         a = np.argpartition(c, -2)[-2:]  # [index_sub_max, index_max]
         l = ucolor[a[1]]
         if c[a[1]] < options['single_thr']:
@@ -210,9 +205,6 @@ def processImage(im, options):
         kmeans: object of the class KMeans
     """
 
-    if not isinstance(im, np.ndarray):  # EvaluationTest() envia informacion incorrecta
-        return im[1], None, None
-
     # 1- CHANGE THE IMAGE TO THE CORRESPONDING COLOR SPACE FOR KMEANS
     options['colorspace'] = options['colorspace'].lower()
 
@@ -231,6 +223,10 @@ def processImage(im, options):
         kmeans.run()
 
     # 3- GET THE NAME LABELS DETECTED ON THE 11 DIMENSIONAL SPACE
+    if options['colorspace'] in space_return:
+        c = space_return[options['colorspace']](kmeans.centroids.reshape(1, -1, kmeans.centroids.shape[-1]))
+        kmeans.centroids = cn.ImColorNamingTSELabDescriptor(c if options['colorspace'] == 'rgb' else c*255.0)[0]
+
     colors, which = getLabels(kmeans, options)
 
     return colors, which, kmeans
