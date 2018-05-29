@@ -8,6 +8,7 @@ import numpy as np
 import ColorNaming as cn
 from skimage import color
 import KMeans as km
+from scipy.special import comb
 
 def NIUs():
     """@brief   Returns Authors NIUs
