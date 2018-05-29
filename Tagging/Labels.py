@@ -53,7 +53,12 @@ def evaluate(description, GT, options):
     return sum(scores)/len(description), scores
 
 
-metrics = {'basic':
+beta = 1.0
+ucolor = [unicode(n) for n in cn.colors]
+max_labels = len(ucolor) + comb(len(ucolor), 2) - 1  # BlackWhite no es possible
+metrics = {'basic':  # precision or positive predictive value (PPV)
+               lambda tp, tn, fp, fn:                                                               tp/(tp + fp),
+           'sensitivity, recall, hit rate, or true positive rate (TPR)':
                lambda tp, tn, fp, fn:                                                               tp/(tp + fn),
            'specificity or true negative rate (TNR)':
                lambda tp, tn, fp, fn:                                                               tn/(tn + fp),
@@ -69,27 +74,38 @@ metrics = {'basic':
                lambda tp, tn, fp, fn:                                                               fp/(fp + tp),
            'false omission rate (FOR)':
                lambda tp, tn, fp, fn:                                                               fn/(fn + tn),
-           'Rand index, accuracy (ACC)':
+           'Rand index or accuracy (ACC)':
                lambda tp, tn, fp, fn:                                              (tp + tn)/(tp + tn + fp + fn),
            'Jaccard index (J)':
                lambda tp, tn, fp, fn:                                                          tp/(tp + fp + fn),
-           'Dice index, harmonic mean of precision and sensitivity (F1 score)':
-               lambda tp, tn, fp, fn:                                                      2*tp/(2*tp + fp + fn),
+           "F-score (beta = %f)" % beta:
+               lambda tp, tn, fp, fn:                    (1 + beta**2)*tp/((1 + beta**2)*tp + (beta**2)*fp + fn),
            'Fowlkes–Mallows index (FM)':
                lambda tp, tn, fp, fn:                                   np.sqrt((tp/(tp + fp)) + (tp/(tp + fn))),
            'Matthews correlation coefficient (MCC)':
                lambda tp, tn, fp, fn:           (tp*tn - fp*fn)/np.sqrt((tp + fp)*(tp + fn)*(tn + fp)*(tn + fn)),
-           'Informedness or Bookmaker Informedness (BM)':
+           'Bookmaker Informedness (BM)':
                lambda tp, tn, fp, fn:                                        (tp/(tp + fn)) + (tn/(tn + fp)) - 1,
            'Markedness (MK)':
-               lambda tp, tn, fp, fn:                                        (tp/(tp + fp)) + (tn/(tn + fn)) - 1}
+               lambda tp, tn, fp, fn:                                        (tp/(tp + fp)) + (tn/(tn + fn)) - 1,
+           'Positive likelihood ratio (LR+)':
+               lambda tp, tn, fp, fn:                                              (tp/(tp + fn))/(fp/(fp + tn)),
+           'Negative likelihood ratio (LR-)':
+               lambda tp, tn, fp, fn:                                              (tn/(tn + fp))/(fn/(fn + tp)),
+           'Diagnostic odds ratio (DOR)':
+               lambda tp, tn, fp, fn:            ((tp/(tp + fn))/(fp/(fp + tn)))/((tn/(tn + fp))/(fn/(fn + tp))),
+           'Confusion matrix':
+               lambda tp, tn, fp, fn:                                             np.array([[tp, fp], [fn, tn]]),
+           'mat': lambda tp, tn, fp, fn:                                                        [tp, fp, fn, tn]}
 
 
 def similarityMetric(Est, GT, options):
     """SIMILARITY METRIC
+
     :param list Est: list of color names estimated from the image ['red','green',..]
     :param list GT: list of color names from the ground truth
     :param dict options: contains options to control metric, ...
+
     :rtype: float
     :return: S similarity between label LISTs
     """
@@ -99,15 +115,17 @@ def similarityMetric(Est, GT, options):
     if 'metric' not in options:
         options['metric'] = 'basic'
 
-    tp, fp = float(sum(im in Est for im in GT)), float(sum(im not in GT for im in Est))
-    tn, fn = len(GT) - fp, len(Est) - tp
+    tp = float(sum(im in GT for im in Est))     # in  Est   in  GT
+    fp, fn = len(Est) - tp, len(GT) - tp        # in  Est   not GT  # not Est   in GT
+    tn = max_labels - fn - fp - tp              # not Est   not GT
 
     options['metric'] = options['metric'].lower()
 
     if options['metric'] in metrics:
         return metrics[options['metric']](tp, tn, fp, fn)
     else:
-        return np.random.rand()
+        return 0  # np.random.rand()
+
 
 def getLabels(kmeans, options):
     """@brief   Labels all centroids of kmeans object to their color names
